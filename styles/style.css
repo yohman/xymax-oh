@@ -1,0 +1,746 @@
+/* ===========================================================
+	1. Reset & Base Styles
+	=========================================================== */
+* {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+}
+
+html, body {
+	height: 100%;
+	width: 100%;
+}
+
+/* ===========================================================
+	2. Map Container
+	=========================================================== */
+#map {
+	height: 100vh;
+	width: 100vw;
+}
+
+/* ===========================================================
+	3. Side Panel Styles
+	=========================================================== */
+.side-panel {
+	position: fixed;
+	top: 0;
+	right: -400px;
+	width: 400px;
+	height: 100vh;
+	background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+	box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
+	z-index: 500;
+	transition: right 0.3s ease;
+	overflow-y: auto;
+	border-left: 1px solid #444;
+}
+
+.side-panel.open {
+	right: 0;
+}
+
+.side-panel-content {
+	padding: 40px 30px;
+	color: #fff;
+	font-family: 'Segoe UI', 'Helvetica Neue', Arial, 'Liberation Sans', sans-serif;
+}
+
+.side-panel-header {
+	margin-bottom: 30px;
+}
+
+.side-panel-title {
+	font-size: 2.5em;
+	font-weight: 700;
+	margin-bottom: 15px;
+	letter-spacing: 0.02em;
+}
+
+.side-panel-description {
+	font-size: 1em;
+	color: #b0b8c1;
+	font-weight: 400;
+	line-height: 1.5;
+	letter-spacing: 0.01em;
+}
+
+.side-panel-section {
+	/* margin-bottom: 30px;
+	padding-bottom: 20px;
+	border-bottom: 1px solid #444; */
+}
+
+.side-panel-section:last-child {
+	border-bottom: none;
+}
+
+.side-panel-section-title {
+	font-size: 1.2em;
+	font-weight: 600;
+	margin-bottom: 15px;
+	color: #ffffff;
+}
+
+.side-panel-table {
+	width: 100%;
+	font-size: 1em;
+	color: #cccccc;
+}
+
+.side-panel-table td {
+	padding: 8px 0;
+	border-bottom: 1px solid #333;
+}
+
+.side-panel-table td:first-child {
+	font-weight: 500;
+}
+
+.side-panel-table td:last-child {
+	text-align: right;
+	font-weight: 600;
+}
+
+.side-panel-waffle-container {
+	display: flex;
+	justify-content: space-around;
+	align-items: flex-start;
+	margin-top: 20px;
+	gap: 15px;
+	flex-wrap: wrap;
+}
+
+.side-panel-waffle-item {
+	text-align: center;
+	font-size: 0.9em;
+	color: #cccccc;
+}
+
+.side-panel-waffle-year {
+	margin-bottom: 12px;
+	font-weight: 600;
+	color: #ffffff;
+	font-size: 1.1em;
+}
+
+.side-panel-legend {
+	margin-top: 20px;
+	padding-top: 20px;
+	border-top: 1px solid #444;
+	text-align: center;
+}
+
+.side-panel-legend-title {
+	font-size: 1em;
+	color: #cccccc;
+	margin-bottom: 15px;
+	font-weight: 500;
+}
+
+/* Mobile Styles */
+@media (max-width: 768px) {
+	.side-panel {
+		bottom: -70vh;
+		right: 0;
+		top: auto;
+		width: 100vw;
+		height: 70vh;
+		border-left: none;
+		border-top: 1px solid #444;
+		transition: bottom 0.3s ease;
+	}
+	
+	.side-panel.open {
+		bottom: 90px; /* Above footer */
+	}
+	
+	.side-panel-content {
+		padding: 20px 15px;
+	}
+	
+	.side-panel-title {
+		font-size: 1.8em;
+	}
+	
+	.side-panel-description {
+		font-size: 0.9em;
+		line-height: 1.4;
+	}
+	
+	.side-panel-table td {
+		padding: 6px 0;
+		font-size: 0.9em;
+	}
+	
+	.side-panel-waffle-container {
+		flex-direction: column;
+		align-items: center;
+		gap: 20px;
+		margin-top: 15px;
+	}
+	
+	.side-panel-waffle-item {
+		font-size: 1em;
+	}
+	
+	.side-panel-waffle-year {
+		font-size: 1em;
+		margin-bottom: 10px;
+	}
+	
+	#footer {
+		height: 90px;
+		padding: 8px 10px;
+		gap: 6px;
+	}
+	
+	.year-slider-container {
+		width: 95vw;
+		margin-bottom: 3px;
+	}
+	
+	.year-slider {
+		height: 25px;
+	}
+	
+	.slider-handle {
+		width: 14px;
+		height: 14px;
+	}
+	
+	.slider-stop {
+		width: 8px;
+		height: 8px;
+	}
+	
+	.slider-label {
+		font-size: 9px;
+	}
+	
+	.category-buttons {
+		gap: 8px;
+	}
+	
+	.category-button {
+		padding: 6px 12px;
+		font-size: 11px;
+		min-width: 70px;
+	}
+	
+	#title-panel {
+		top: 10px;
+		left: 10px;
+		right: 10px;
+		padding: 15px 20px;
+		min-width: auto;
+	}
+	
+	.title-panel-title {
+		font-size: 1.6em;
+	}
+	
+	.title-panel-description {
+		font-size: 0.85em;
+		margin-bottom: 15px;
+	}
+	
+	.title-panel-toggle {
+		gap: 10px;
+	}
+	
+	.toggle-label {
+		font-size: 0.8em;
+	}
+	
+	.toggle-switch {
+		width: 45px;
+		height: 24px;
+	}
+	
+	.toggle-handle {
+		width: 18px;
+		height: 18px;
+	}
+	
+	.toggle-switch.active .toggle-handle {
+		left: 23px;
+	}
+}
+
+/* Small Mobile Styles */
+@media (max-width: 480px) {
+	.side-panel {
+		bottom: -75vh;
+		height: 75vh;
+	}
+	
+	.side-panel.open {
+		bottom: 85px;
+	}
+	
+	.side-panel-content {
+		padding: 15px 12px;
+	}
+	
+	.side-panel-title {
+		font-size: 1.5em;
+	}
+	
+	.side-panel-description {
+		font-size: 0.8em;
+	}
+	
+	.side-panel-table td {
+		font-size: 0.85em;
+		padding: 4px 0;
+	}
+	
+	#footer {
+		height: 85px;
+		padding: 6px 8px;
+	}
+	
+	.category-button {
+		padding: 5px 10px;
+		font-size: 10px;
+		min-width: 60px;
+	}
+	
+	.slider-label {
+		font-size: 8px;
+	}
+	
+	#title-panel {
+		top: 8px;
+		left: 8px;
+		right: 8px;
+		padding: 12px 15px;
+	}
+	
+	.title-panel-title {
+		font-size: 1.4em;
+	}
+	
+	.title-panel-description {
+		font-size: 0.8em;
+		margin-bottom: 12px;
+	}
+	
+	.waffle-chart {
+		width: 80px;
+		height: 80px;
+	}
+}
+
+/* Landscape Mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+	#footer {
+		height: 70px;
+		flex-direction: row;
+		gap: 20px;
+		padding: 8px 15px;
+	}
+	
+	.year-slider-container {
+		width: 60vw;
+		margin-bottom: 0;
+	}
+	
+	.category-buttons {
+		gap: 8px;
+	}
+	
+	.side-panel {
+		bottom: -45vh;
+		height: 45vh;
+	}
+	
+	.side-panel.open {
+		bottom: 70px;
+	}
+	
+	.side-panel-waffle-container {
+		flex-direction: row;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 15px;
+	}
+	
+	#title-panel {
+		top: 8px;
+		left: 8px;
+		padding: 10px 15px;
+		right: auto;
+		min-width: 250px;
+	}
+	
+	.title-panel-title {
+		font-size: 1.4em;
+	}
+	
+	.title-panel-description {
+		font-size: 0.8em;
+		margin-bottom: 10px;
+	}
+}
+
+/* ===========================================================
+	4. Waffle Chart Section (Updated for Side Panel)
+	=========================================================== */
+.custom-popup-waffle-container {
+	 display: flex;
+	 justify-content: space-around;
+	 align-items: flex-start;
+	 margin-top: 15px;
+	 gap: 15px;
+}
+
+.custom-popup-waffle-item {
+	 text-align: center;
+	 font-size: 0.35em;
+	 color: #cccccc;
+}
+
+.custom-popup-waffle-year {
+	 margin-bottom: 8px;
+	 font-weight: 500;
+	 color: #ffffff;
+}
+
+/* ===========================================================
+	5. Popup Legend Section
+	=========================================================== */
+.custom-popup-legend {
+	 margin-top: 10px;
+	 padding-top: 10px;
+	 border-top: 1px solid #444;
+	 text-align: center;
+}
+
+.custom-popup-legend-title {
+	 font-size: 0.3em;
+	 color: #cccccc;
+	 margin-bottom: 8px;
+	 font-weight: 500;
+}
+/* ===========================================================
+	6. Waffle Chart & Legend SVG Styles
+	=========================================================== */
+.waffle-chart {
+	 width: 100px;
+	 height: 100px;
+	 background: transparent;
+}
+
+.waffle-legend {
+	 width: 200px;
+	 height: 60px;
+	 background: transparent;
+}
+
+.waffle-box {
+	 stroke: transparent;
+	 stroke-width: 1;
+}
+
+.waffle-legend-box {
+	 stroke: transparent;
+	 stroke-width: 1;
+}
+
+.waffle-legend-text {
+	 fill: #cccccc;
+	 font-size: 12px;
+	 font-family: Arial, sans-serif;
+}
+
+/* ===========================================================
+	7. Footer & Controls
+	=========================================================== */
+#footer {
+	position: fixed;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 100px;
+	background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	gap: 8px;
+	z-index: 1000;
+	box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+	border-top: 1px solid #444;
+	padding: 8px 15px;
+}
+
+/* Year Slider */
+.year-slider-container {
+	width: min(500px, 90vw);
+	position: relative;
+	margin-bottom: 5px;
+}
+
+.year-slider {
+	position: relative;
+	height: 30px;
+	width: 100%;
+}
+
+.slider-track {
+	position: absolute;
+	top: 50%;
+	left: 0;
+	right: 0;
+	height: 3px;
+	background: #444;
+	border-radius: 2px;
+	transform: translateY(-50%);
+}
+
+.slider-range {
+	position: absolute;
+	height: 3px;
+	background: linear-gradient(90deg, #00e676, #2979ff);
+	border-radius: 2px;
+	top: 50%;
+	transform: translateY(-50%);
+}
+
+.slider-stop {
+	position: absolute;
+	top: 50%;
+	width: 10px;
+	height: 10px;
+	background: #2a2a2a;
+	border: 2px solid #fff;
+	border-radius: 50%;
+	transform: translate(-50%, -50%);
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.slider-stop:hover {
+	background: #fff;
+	transform: translate(-50%, -50%) scale(1.1);
+}
+
+.slider-handle {
+	position: absolute;
+	top: 50%;
+	width: 16px;
+	height: 16px;
+	background: #fff;
+	border: 2px solid #333;
+	border-radius: 50%;
+	cursor: grab;
+	transform: translate(-50%, -50%);
+	transition: all 0.2s ease;
+	z-index: 10;
+}
+
+.slider-handle:active {
+	cursor: grabbing;
+	transform: translate(-50%, -50%) scale(1.1);
+}
+
+.slider-handle.start {
+	box-shadow: 0 0 8px rgba(0, 230, 118, 0.5);
+}
+
+.slider-handle.end {
+	box-shadow: 0 0 8px rgba(41, 121, 255, 0.5);
+}
+
+.slider-labels {
+	display: flex;
+	justify-content: space-between;
+	margin-top: 5px;
+	padding: 0 8px;
+}
+
+.slider-label {
+	font-size: 10px;
+	color: #cccccc;
+	font-weight: 500;
+	text-align: center;
+}
+
+/* Category Buttons */
+.category-buttons {
+	display: flex;
+	gap: 12px;
+	flex-wrap: wrap;
+	justify-content: center;
+}
+
+.category-button {
+	padding: 8px 16px;
+	border: 1px solid #555;
+	background: transparent;
+	color: #cccccc;
+	font-size: 12px;
+	font-weight: 600;
+	font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+	border-radius: 6px;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	text-transform: uppercase;
+	letter-spacing: 0.3px;
+	min-width: 80px;
+	white-space: nowrap;
+}
+
+.category-button:hover {
+	border-color: #888;
+	color: #fff;
+	background: rgba(255, 255, 255, 0.05);
+	transform: translateY(-2px);
+	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.category-button.active {
+	border-color: #fff;
+	color: #fff;
+	background: rgba(255, 255, 255, 0.1);
+	box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+}
+
+.category-button.active:hover {
+	background: rgba(255, 255, 255, 0.15);
+}
+
+/* Office button specific styling */
+.category-button[data-category="office"].active {
+	border-color: #00e676;
+	color: #00e676;
+	box-shadow: 0 0 20px rgba(0, 230, 118, 0.3);
+}
+
+/* Housing button specific styling */
+.category-button[data-category="housing"].active {
+	border-color: #ff1744;
+	color: #ff1744;
+	box-shadow: 0 0 20px rgba(255, 23, 68, 0.3);
+}
+
+/* Other button specific styling */
+.category-button[data-category="other"].active {
+	border-color: #2979ff;
+	color: #2979ff;
+	box-shadow: 0 0 20px rgba(41, 121, 255, 0.3);
+}
+
+/* ===========================================================
+	8. Title Panel
+	=========================================================== */
+#title-panel {
+	position: fixed;
+	top: 20px;
+	left: 20px;
+	background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+	padding: 25px 30px;
+	border-radius: 12px;
+	border: 1px solid #444;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+	z-index: 1000;
+	min-width: 280px;
+}
+
+.title-panel-title {
+	font-size: 2.2em;
+	font-weight: 700;
+	color: #ffffff;
+	margin-bottom: 8px;
+	font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+	letter-spacing: 0.02em;
+}
+
+.title-panel-description {
+	font-size: 1em;
+	color: #b0b8c1;
+	margin-bottom: 20px;
+	line-height: 1.4;
+	font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+}
+
+.title-panel-toggle {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.toggle-label {
+	font-size: 0.9em;
+	color: #cccccc;
+	font-weight: 500;
+}
+
+.toggle-switch {
+	position: relative;
+	width: 50px;
+	height: 26px;
+	background: #444;
+	border-radius: 13px;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	border: 1px solid #555;
+}
+
+.toggle-switch.active {
+	background: #00e676;
+	border-color: #00e676;
+}
+
+.toggle-handle {
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 20px;
+	height: 20px;
+	background: #fff;
+	border-radius: 50%;
+	transition: all 0.3s ease;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch.active .toggle-handle {
+	left: 26px;
+}
+
+/* Mobile Styles for Title Panel */
+@media (max-width: 768px) {
+	#title-panel {
+		top: 15px;
+		left: 15px;
+		right: 15px;
+		padding: 20px;
+		min-width: auto;
+	}
+	
+	.title-panel-title {
+		font-size: 1.8em;
+	}
+	
+	.title-panel-description {
+		font-size: 0.9em;
+		margin-bottom: 15px;
+	}
+}
+
+/* ===========================================================
+	8. Map Interaction States
+	=========================================================== */
+.side-panel.sticky {
+	border-left: 3px solid #fff;
+}
+
+.side-panel-header.sticky {
+	/* background: rgba(255, 255, 255, 0.05);
+	border-radius: 8px;
+	padding: 15px;
+	margin-bottom: 20px; */
+}

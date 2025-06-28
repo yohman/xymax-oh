@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapbox Project</title>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+    <link rel="stylesheet" href="styles/style.css">
+</head>
+<body>
+    <div id="map"></div>
+    
+    <div id="title-panel">
+        <div class="title-panel-title">東京物語</div>
+        <div class="title-panel-description">A transforming metropolis...</div>
+        <div class="title-panel-toggle">
+            <span class="toggle-label">3D</span>
+            <div class="toggle-switch active" id="map-mode-toggle">
+                <div class="toggle-handle"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="side-panel" class="side-panel">
+        <div class="side-panel-content">
+            <div class="side-panel-header">
+                <div class="side-panel-title" id="panel-title"></div>
+                <div class="side-panel-description" id="panel-description"></div>
+            </div>
+            
+            <div class="side-panel-section">
+                <!-- <div class="side-panel-section-title">Year Comparison</div> -->
+                <table class="side-panel-table" id="panel-table"></table>
+            </div>
+            
+            <div class="side-panel-section">
+                <!-- <div class="side-panel-section-title">Land Use Distribution</div> -->
+                <div class="side-panel-waffle-container" id="panel-waffle-container"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="footer">
+        <div class="year-slider-container">
+            <div class="year-slider">
+                <div class="slider-track"></div>
+                <div class="slider-range" id="slider-range"></div>
+                <div class="slider-handle start" id="start-handle"></div>
+                <div class="slider-handle end" id="end-handle"></div>
+            </div>
+            <div class="slider-labels" id="slider-labels"></div>
+        </div>
+        
+        <div class="category-buttons">
+            <button class="category-button active" data-category="office">Office</button>
+            <button class="category-button" data-category="housing">Housing</button>
+            <button class="category-button" data-category="other">Other</button>
+        </div>
+    </div>
+    
+    <script src="js/settings.js"></script>
+    <script src="js/waffle.js"></script>
+    <script src="js/slider.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
