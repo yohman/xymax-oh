@@ -1,6 +1,17 @@
 // Load data when page loads
 loadTokyoData();
 
+// Initialize basemap controls when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    // Add event listeners for basemap buttons
+    document.querySelectorAll('.basemap-button').forEach(button => {
+        button.addEventListener('click', (e) => {
+            const basemapId = e.target.dataset.basemap;
+            xymax.toggleBasemap(basemapId);
+        });
+    });
+});
+
 // Function to load and display GeoJSON data
 async function loadTokyoData() {
 	try {

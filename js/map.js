@@ -138,7 +138,7 @@ function initMap(geoJsonData) {
 	
 	map = new mapboxgl.Map({
 		container: 'map',
-		style: xymax.defaults.basemap,
+		style: xymax.basemaps.dark,
 		center: [xymax.defaults.lon, xymax.defaults.lat],
 		zoom: xymax.defaults.zoom,
 		pitch: xymax.defaults.pitch,
@@ -212,14 +212,14 @@ function initMap(geoJsonData) {
 		extrudePolygons(currentStartYear, currentEndYear, currentCategory);
 		
 		// Get side panel elements
-		const sidePanel = document.getElementById('side-panel');
+		window.sidePanel = document.getElementById('side-panel');
 		const panelTitle = document.getElementById('panel-title');
 		const panelDescription = document.getElementById('panel-description');
 		const panelTable = document.getElementById('panel-table');
 		const panelWaffleContainer = document.getElementById('panel-waffle-container');
 		const panelLegend = document.getElementById('panel-legend');
 
-		function updateSidePanel(feature) {
+		window.updateSidePanel = function updateSidePanel(feature) {
 			const value = feature.properties.difference;
 			
 			if (value !== undefined && value !== null) {
