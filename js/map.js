@@ -3,9 +3,13 @@ let data;
 let currentCategory = 'office';
 let currentStartYear = xymax.defaults.defaultStartYear;
 let currentEndYear = xymax.defaults.defaultEndYear;
-let selectedFeature = null;
+let selectedFeatures = new Map(); // Changed to Map with KEY_CODE as key to prevent duplicates
 let isSticky = false;
 let currentMapMode = xymax.defaults.mapMode;
+let isSelectMode = false; // New variable for select mode
+let isDrawingSelection = false;
+let selectionStartPoint = null;
+let selectionBox = null;
 
 function extrudePolygons(startYear = 1996, endYear = 2023, category = 'office') {
 	console.log(`Animating polygons for ${startYear} to ${endYear} with category: ${category}`);
@@ -223,9 +227,76 @@ function initMap(geoJsonData) {
 		window.sidePanel = document.getElementById('side-panel');
 		const panelTitle = document.getElementById('panel-title');
 		const panelDescription = document.getElementById('panel-description');
-		const panelTable = document.getElementById('panel-table');
+		const panelCategorySummary = document.getElementById('panel-category-summary');
 		const panelWaffleContainer = document.getElementById('panel-waffle-container');
 		const panelLegend = document.getElementById('panel-legend');
+
+		// Function to update category summary section
+		window.updateCategorySummary = function updateCategorySummary(featuresData, startYear, endYear) {
+			const summaryItems = panelCategorySummary.querySelectorAll('.category-summary-item');
+			const categories = ['office', 'housing', 'other'];
+			
+			categories.forEach((category, index) => {
+				const item = summaryItems[index];
+				const arrow = item.querySelector('.category-arrow');
+				const value = item.querySelector('.category-value');
+				const yearValues = item.querySelectorAll('.year-value');
+				const startYearElement = yearValues[0];
+				const endYearElement = yearValues[1];
+				
+				let categoryDifference = 0;
+				let totalStartValue = 0;
+				let totalEndValue = 0;
+				
+				if (featuresData && Array.isArray(featuresData)) {
+					// Multiple features aggregation
+					featuresData.forEach(feature => {
+						const props = feature.properties;
+						const startValue = props[`${startYear}_${category}_total_use_area`] || 0;
+						const endValue = props[`${endYear}_${category}_total_use_area`] || 0;
+						totalStartValue += startValue;
+						totalEndValue += endValue;
+						categoryDifference += endValue - startValue;
+					});
+				} else if (featuresData && featuresData.properties) {
+					// Single feature
+					const props = featuresData.properties;
+					totalStartValue = props[`${startYear}_${category}_total_use_area`] || 0;
+					totalEndValue = props[`${endYear}_${category}_total_use_area`] || 0;
+					categoryDifference = totalEndValue - totalStartValue;
+				}
+				
+				// Update arrow and color
+				const roundedDiff = Math.round(categoryDifference);
+				if (categoryDifference > 0) {
+					arrow.textContent = '⬆︎';
+					arrow.style.color = '#00ff88';
+				} else if (categoryDifference < 0) {
+					arrow.textContent = '⬇︎';
+					arrow.style.color = '#ff4444';
+				} else {
+					arrow.textContent = '→';
+					arrow.style.color = '#888888';
+				}
+				
+				// Update main value with m² label
+				value.textContent = `${Math.abs(roundedDiff).toLocaleString()} m²`;
+				
+				// Update year values with m² labels and year prefixes
+				startYearElement.setAttribute('data-year', startYear);
+				endYearElement.setAttribute('data-year', endYear);
+				startYearElement.textContent = `${startYear}: ${Math.round(totalStartValue).toLocaleString()} m²`;
+				endYearElement.textContent = `${endYear}: ${Math.round(totalEndValue).toLocaleString()} m²`;
+			});
+		}
+		
+		// Initialize category summary with default values
+		window.initializeCategorySummary = function initializeCategorySummary() {
+			updateCategorySummary(null, currentStartYear, currentEndYear);
+		}
+		
+		// Initialize the category summary on load
+		initializeCategorySummary();
 
 		window.updateSidePanel = function updateSidePanel(feature) {
 			const value = feature.properties.difference;
@@ -262,20 +333,12 @@ function initMap(geoJsonData) {
 				const genderLegend = createGenderWaffleChartLegend(feature.properties);
 				
 				// Update side panel content
-				panelTitle.innerHTML = `${arrow}${intValue.toLocaleString()} m²`;
-				panelTitle.style.color = color;
-				panelDescription.innerHTML = `${category.charAt(0).toUpperCase() + category.slice(1)} Use Area ${description}<br><small style="color: #888; font-size: 0.8em;">Population: ${population.toLocaleString()} | Households: ${households.toLocaleString()} | Foreign: ${popForeign.toLocaleString()} (${foreignPercent}%)</small>`;
+				panelTitle.innerHTML = `Selected Area`;
+				panelTitle.style.color = '#ffffff';
+				panelDescription.innerHTML = `${description} across all categories<br><small style="color: #888; font-size: 0.8em;">Population: ${population.toLocaleString()} | Households: ${households.toLocaleString()} | Foreign: ${popForeign.toLocaleString()} (${foreignPercent}%)</small>`;
 				
-				panelTable.innerHTML = `
-					<tr>
-						<td>${startYear}:</td>
-						<td>${startValue.toLocaleString()} m²</td>
-					</tr>
-					<tr>
-						<td>${endYear}:</td>
-						<td>${endValue.toLocaleString()} m²</td>
-					</tr>
-				`;
+				// Update category summary
+				updateCategorySummary(feature, startYear, endYear);
 				
 				panelWaffleContainer.innerHTML = `
 					<div class="side-panel-waffle-item">
@@ -302,31 +365,187 @@ function initMap(geoJsonData) {
 			}
 		}
 
+		// New function to update side panel with aggregated data from multiple features
+		window.updateSidePanelMultiple = function updateSidePanelMultiple(featuresMap) {
+			if (!featuresMap || featuresMap.size === 0) return;
+			
+			const featuresArray = Array.from(featuresMap.values());
+			let totalDifference = 0;
+			let totalStartValue = 0;
+			let totalEndValue = 0;
+			let totalPopulation = 0;
+			let totalHouseholds = 0;
+			let totalPopForeign = 0;
+			
+			// Aggregate demographic data for waffle charts
+			let aggregatedProps = {
+				population: 0,
+				households: 0,
+				pop_foreign: 0,
+				pop_male: 0,
+				pop_female: 0,
+				pop_0_14: 0,
+				pop_15_64: 0,
+				pop_65_plus: 0
+			};
+			
+			// Aggregate land use data for each year
+			let aggregatedStartProps = {};
+			let aggregatedEndProps = {};
+			
+			// Get the first feature to determine available properties
+			const firstFeature = featuresArray[0];
+			const startYear = firstFeature.properties.startYear || '';
+			const endYear = firstFeature.properties.endYear || '';
+			const category = firstFeature.properties.category || '';
+			
+			// Initialize land use aggregation objects
+			const landUseCategories = ['office', 'housing', 'other'];
+			landUseCategories.forEach(cat => {
+				aggregatedStartProps[`${startYear}_${cat}_total_use_area`] = 0;
+				aggregatedEndProps[`${endYear}_${cat}_total_use_area`] = 0;
+			});
+			
+			// Aggregate all values
+			featuresArray.forEach(feature => {
+				const props = feature.properties;
+				totalDifference += props.difference || 0;
+				totalStartValue += props.startValue || 0;
+				totalEndValue += props.endValue || 0;
+				
+				// Aggregate demographic data
+				aggregatedProps.population += props.population || 0;
+				aggregatedProps.households += props.households || 0;
+				aggregatedProps.pop_foreign += props.pop_foreign || 0;
+				aggregatedProps.pop_male += props.pop_male || 0;
+				aggregatedProps.pop_female += props.pop_female || 0;
+				aggregatedProps.pop_0_14 += props.pop_0_14 || 0;
+				aggregatedProps.pop_15_64 += props.pop_15_64 || 0;
+				aggregatedProps.pop_65_plus += props.pop_65_plus || 0;
+				
+				// Aggregate land use data
+				landUseCategories.forEach(cat => {
+					const startField = `${startYear}_${cat}_total_use_area`;
+					const endField = `${endYear}_${cat}_total_use_area`;
+					aggregatedStartProps[startField] += props[startField] || 0;
+					aggregatedEndProps[endField] += props[endField] || 0;
+				});
+			});
+			
+			totalPopulation = aggregatedProps.population;
+			totalHouseholds = aggregatedProps.households;
+			totalPopForeign = aggregatedProps.pop_foreign;
+			
+			const intValue = Math.round(totalDifference);
+			const arrow = totalDifference > 0 ? '⬆︎' : totalDifference < 0 ? '⬇︎' : '';
+			const description = totalDifference > 0 ? 'Increase' : totalDifference < 0 ? 'Decrease' : 'No Change';
+			const foreignPercent = totalPopulation > 0 ? Math.round((totalPopForeign / totalPopulation) * 100) : 0;
+			const color = totalDifference > 0 ? '#00ff88' : totalDifference < 0 ? '#ff4444' : '#888888';
+			
+			// Create waffle charts using aggregated data
+			const startWaffle = createWaffleChart(aggregatedStartProps, startYear);
+			const endWaffle = createWaffleChart(aggregatedEndProps, endYear);
+			const startLegend = createWaffleChartLegend(aggregatedStartProps, startYear);
+			const endLegend = createWaffleChartLegend(aggregatedEndProps, endYear);
+			
+			// Create age demographics waffle chart with aggregated data
+			const ageWaffle = createAgeWaffleChart(aggregatedProps);
+			const ageLegend = createAgeWaffleChartLegend(aggregatedProps);
+			
+			// Create gender demographics waffle chart with aggregated data
+			const genderWaffle = createGenderWaffleChart(aggregatedProps);
+			const genderLegend = createGenderWaffleChartLegend(aggregatedProps);
+			
+			// Update side panel content
+			panelTitle.innerHTML = `Selected Areas (${featuresArray.length})`;
+			panelTitle.style.color = '#ffffff';
+			panelDescription.innerHTML = `Aggregated data across all categories<br><small style="color: #888; font-size: 0.8em;">Population: ${totalPopulation.toLocaleString()} | Households: ${totalHouseholds.toLocaleString()} | Foreign: ${totalPopForeign.toLocaleString()} (${foreignPercent}%)</small>`;
+			
+			// Update category summary with aggregated data
+			updateCategorySummary(featuresArray, startYear, endYear);
+			
+			// Show waffle charts for aggregated data
+			panelWaffleContainer.innerHTML = `
+				<div class="side-panel-waffle-item">
+					<div class="side-panel-waffle-year">${startYear}</div>
+					${startWaffle}
+					${startLegend}
+				</div>
+				<div class="side-panel-waffle-item">
+					<div class="side-panel-waffle-year">${endYear}</div>
+					${endWaffle}
+					${endLegend}
+				</div>
+				<div class="side-panel-waffle-item">
+					<div class="side-panel-waffle-year">Age Groups (2020)</div>
+					${ageWaffle}
+					${ageLegend}
+				</div>
+				<div class="side-panel-waffle-item">
+					<div class="side-panel-waffle-year">Gender (2020)</div>
+					${genderWaffle}
+					${genderLegend}
+				</div>
+			`;
+		}
+
 		// Click event for polygon selection
 		map.on('click', 'tokyo-layer', (e) => {
+			// Skip polygon selection if we're in select mode (rectangle selection takes priority)
+			if (isSelectMode) {
+				return;
+			}
+			
 			e.preventDefault();
 			const clickedFeature = e.features[0];
+			const keyCode = clickedFeature.properties.KEY_CODE;
 			
-			selectedFeature = clickedFeature;
-			isSticky = true;
+			// Check if this feature is already selected
+			if (selectedFeatures.has(keyCode)) {
+				// Remove from selection
+				selectedFeatures.delete(keyCode);
+			} else {
+				// Add to selection
+				selectedFeatures.set(keyCode, clickedFeature);
+			}
 			
-			// Highlight the selected polygon
-			map.setFilter('tokyo-layer-highlight', ['==', 'KEY_CODE', clickedFeature.properties.KEY_CODE]);
-			
-			// Update side panel and keep it open
-			updateSidePanel(clickedFeature);
-			sidePanel.classList.add('open', 'sticky');
-			document.querySelector('.side-panel-header').classList.add('sticky');
+			// Update highlight filter
+			if (selectedFeatures.size > 0) {
+				const selectedKeyCodes = Array.from(selectedFeatures.keys());
+				map.setFilter('tokyo-layer-highlight', ['in', 'KEY_CODE', ...selectedKeyCodes]);
+				
+				// Update side panel
+				if (selectedFeatures.size === 1) {
+					updateSidePanel(Array.from(selectedFeatures.values())[0]);
+				} else {
+					updateSidePanelMultiple(selectedFeatures);
+				}
+				
+				isSticky = true;
+				sidePanel.classList.add('open', 'sticky');
+				document.querySelector('.side-panel-header').classList.add('sticky');
+			} else {
+				// No features selected, clear everything
+				map.setFilter('tokyo-layer-highlight', ['==', 'KEY_CODE', '']);
+				isSticky = false;
+				sidePanel.classList.remove('open', 'sticky');
+				document.querySelector('.side-panel-header').classList.remove('sticky');
+			}
 		});
 
-		// Click on empty area to deselect
+		// Click on empty area to deselect all
 		map.on('click', (e) => {
+			// Skip if we're in select mode (handled by rectangle selection logic)
+			if (isSelectMode) {
+				return;
+			}
+			
 			// Check if click was on a polygon
 			const features = map.queryRenderedFeatures(e.point, { layers: ['tokyo-layer'] });
 			
 			if (features.length === 0) {
-				// Clicked on empty area
-				selectedFeature = null;
+				// Clicked on empty area - clear all selections
+				selectedFeatures.clear();
 				isSticky = false;
 				
 				// Remove highlight
@@ -343,8 +562,9 @@ function initMap(geoJsonData) {
 			map.getCanvas().style.cursor = 'pointer';
 			
 			const hoveredFeature = e.features[0];
-			// Show hover highlight if not the selected polygon
-			if (!isSticky || hoveredFeature.properties.KEY_CODE !== selectedFeature?.properties.KEY_CODE) {
+			// Show hover highlight if not already selected
+			const isSelected = selectedFeatures.has(hoveredFeature.properties.KEY_CODE);
+			if (!isSelected) {
 				map.setFilter('tokyo-layer-hover', ['==', 'KEY_CODE', hoveredFeature.properties.KEY_CODE]);
 			}
 			
@@ -356,8 +576,9 @@ function initMap(geoJsonData) {
 		map.on('mousemove', 'tokyo-layer', (e) => {
 			const feature = e.features[0];
 			
-			// Update hover highlight if not the selected polygon
-			if (!isSticky || feature.properties.KEY_CODE !== selectedFeature?.properties.KEY_CODE) {
+			// Update hover highlight if not already selected
+			const isSelected = selectedFeatures.has(feature.properties.KEY_CODE);
+			if (!isSelected) {
 				map.setFilter('tokyo-layer-hover', ['==', 'KEY_CODE', feature.properties.KEY_CODE]);
 			}
 			
@@ -377,6 +598,146 @@ function initMap(geoJsonData) {
 			}
 		});
 		
+		// Rectangle selection functionality with select mode
+		function createSelectionBox() {
+			const box = document.createElement('div');
+			box.style.position = 'absolute';
+			box.style.border = '2px dashed #00ff88';
+			box.style.backgroundColor = 'rgba(0, 255, 136, 0.1)';
+			box.style.pointerEvents = 'none';
+			box.style.zIndex = '1000';
+			box.style.display = 'none';
+			document.body.appendChild(box);
+			return box;
+		}
+		
+		// Select mode button functionality
+		const selectModeButton = document.getElementById('select-mode-button');
+		if (selectModeButton) {
+			selectModeButton.addEventListener('click', () => {
+				isSelectMode = !isSelectMode;
+				selectModeButton.classList.toggle('active', isSelectMode);
+				
+				// Update cursor and UI feedback
+				if (isSelectMode) {
+					map.getCanvas().style.cursor = 'crosshair';
+					// Disable map interactions that conflict with selection
+					map.boxZoom.disable();
+				} else {
+					map.getCanvas().style.cursor = '';
+					map.boxZoom.enable();
+					// Clean up any ongoing selection
+					if (isDrawingSelection && selectionBox) {
+						selectionBox.style.display = 'none';
+						isDrawingSelection = false;
+						selectionStartPoint = null;
+					}
+				}
+			});
+		}
+		
+		// Mouse click in select mode - start or complete rectangle selection
+		map.on('click', (e) => {
+			if (isSelectMode) {
+				// Prevent default polygon click behavior
+				e.preventDefault();
+				
+				if (!isDrawingSelection) {
+					// Start rectangle selection
+					console.log('Starting rectangle selection');
+					isDrawingSelection = true;
+					selectionStartPoint = e.point;
+					
+					if (!selectionBox) {
+						selectionBox = createSelectionBox();
+					}
+					
+					const rect = map.getContainer().getBoundingClientRect();
+					selectionBox.style.left = (rect.left + e.point.x) + 'px';
+					selectionBox.style.top = (rect.top + e.point.y) + 'px';
+					selectionBox.style.width = '0px';
+					selectionBox.style.height = '0px';
+					selectionBox.style.display = 'block';
+					
+				} else {
+					// Complete rectangle selection
+					console.log('Completing rectangle selection');
+					const currentPoint = e.point;
+					
+					// Define the selection rectangle
+					const minX = Math.min(selectionStartPoint.x, currentPoint.x);
+					const maxX = Math.max(selectionStartPoint.x, currentPoint.x);
+					const minY = Math.min(selectionStartPoint.y, currentPoint.y);
+					const maxY = Math.max(selectionStartPoint.y, currentPoint.y);
+					
+					console.log('Rectangle selection area:', { minX, minY, maxX, maxY });
+					
+					// Query features within the rectangle
+					const featuresInBox = map.queryRenderedFeatures([
+						[minX, minY],
+						[maxX, maxY]
+					], { layers: ['tokyo-layer'] });
+					
+					console.log('Features found in rectangle:', featuresInBox.length);
+					
+					// Add features to selection, using KEY_CODE to prevent duplicates
+					featuresInBox.forEach(feature => {
+						const keyCode = feature.properties.KEY_CODE;
+						if (!selectedFeatures.has(keyCode)) {
+							selectedFeatures.set(keyCode, feature);
+						}
+					});
+					
+					console.log('Total selected features after rectangle selection:', selectedFeatures.size);
+					
+					// Update highlight and side panel
+					if (selectedFeatures.size > 0) {
+						const selectedKeyCodes = Array.from(selectedFeatures.keys());
+						map.setFilter('tokyo-layer-highlight', ['in', 'KEY_CODE', ...selectedKeyCodes]);
+						
+						if (selectedFeatures.size === 1) {
+							updateSidePanel(Array.from(selectedFeatures.values())[0]);
+						} else {
+							updateSidePanelMultiple(selectedFeatures);
+						}
+						
+						isSticky = true;
+						sidePanel.classList.add('open', 'sticky');
+						document.querySelector('.side-panel-header').classList.add('sticky');
+					}
+					
+					// Clean up
+					selectionBox.style.display = 'none';
+					isDrawingSelection = false;
+					selectionStartPoint = null;
+					
+					// Exit select mode
+					isSelectMode = false;
+					selectModeButton.classList.remove('active');
+					map.getCanvas().style.cursor = '';
+					map.boxZoom.enable();
+				}
+			}
+		});
+		
+		// Mouse move in select mode - update rectangle
+		map.on('mousemove', (e) => {
+			if (isSelectMode && isDrawingSelection && selectionStartPoint && selectionBox) {
+				const currentPoint = e.point;
+				
+				const minX = Math.min(selectionStartPoint.x, currentPoint.x);
+				const maxX = Math.max(selectionStartPoint.x, currentPoint.x);
+				const minY = Math.min(selectionStartPoint.y, currentPoint.y);
+				const maxY = Math.max(selectionStartPoint.y, currentPoint.y);
+				
+				const rect = map.getContainer().getBoundingClientRect();
+				selectionBox.style.left = (rect.left + minX) + 'px';
+				selectionBox.style.top = (rect.top + minY) + 'px';
+				selectionBox.style.width = (maxX - minX) + 'px';
+				selectionBox.style.height = (maxY - minY) + 'px';
+			}
+		});
+		
 		// Add category button event handlers
 		const categoryButtons = document.querySelectorAll('.category-button');
 		categoryButtons.forEach(button => {
@@ -391,15 +752,25 @@ function initMap(geoJsonData) {
 				currentCategory = category;
 				extrudePolygons(currentStartYear, currentEndYear, currentCategory);
 				
-				// Update side panel if there's a selected feature - do this immediately after data update
-				if (selectedFeature && isSticky) {
-					// Find the updated feature with the new calculated properties
-					const updatedFeature = data.features.find(f => 
-						f.properties.KEY_CODE === selectedFeature.properties.KEY_CODE
-					);
-					if (updatedFeature) {
-						selectedFeature = updatedFeature;
-						updateSidePanel(selectedFeature);
+				// Update side panel if there are selected features - do this immediately after data update
+				if (selectedFeatures.size > 0 && isSticky) {
+					// Find the updated features with the new calculated properties
+					const updatedFeatures = new Map();
+					selectedFeatures.forEach((selectedFeature, keyCode) => {
+						const updatedFeature = data.features.find(f => 
+							f.properties.KEY_CODE === keyCode
+						);
+						if (updatedFeature) {
+							updatedFeatures.set(keyCode, updatedFeature);
+						}
+					});
+					
+					selectedFeatures = updatedFeatures;
+					
+					if (selectedFeatures.size === 1) {
+						updateSidePanel(Array.from(selectedFeatures.values())[0]);
+					} else if (selectedFeatures.size > 1) {
+						updateSidePanelMultiple(selectedFeatures);
 					}
 				}
 			});
@@ -411,15 +782,25 @@ function initMap(geoJsonData) {
 			currentEndYear = endYear;
 			extrudePolygons(currentStartYear, currentEndYear, currentCategory);
 			
-			// Update side panel if there's a selected feature - do this immediately after data update
-			if (selectedFeature && isSticky) {
-				// Find the updated feature with the new calculated properties
-				const updatedFeature = data.features.find(f => 
-					f.properties.KEY_CODE === selectedFeature.properties.KEY_CODE
-				);
-				if (updatedFeature) {
-					selectedFeature = updatedFeature;
-					updateSidePanel(selectedFeature);
+			// Update side panel if there are selected features - do this immediately after data update
+			if (selectedFeatures.size > 0 && isSticky) {
+				// Find the updated features with the new calculated properties
+				const updatedFeatures = new Map();
+				selectedFeatures.forEach((selectedFeature, keyCode) => {
+					const updatedFeature = data.features.find(f => 
+						f.properties.KEY_CODE === keyCode
+					);
+					if (updatedFeature) {
+						updatedFeatures.set(keyCode, updatedFeature);
+					}
+				});
+				
+				selectedFeatures = updatedFeatures;
+				
+				if (selectedFeatures.size === 1) {
+					updateSidePanel(Array.from(selectedFeatures.values())[0]);
+				} else if (selectedFeatures.size > 1) {
+					updateSidePanelMultiple(selectedFeatures);
 				}
 			}
 		};
@@ -445,16 +826,42 @@ function initMap(geoJsonData) {
 				if (features.length > 0) {
 					// Polygon was touched
 					const clickedFeature = features[0];
-					selectedFeature = clickedFeature;
-					isSticky = true;
+					const keyCode = clickedFeature.properties.KEY_CODE;
 					
-					map.setFilter('tokyo-layer-highlight', ['==', 'KEY_CODE', clickedFeature.properties.KEY_CODE]);
-					updateSidePanel(clickedFeature);
-					sidePanel.classList.add('open', 'sticky');
-					document.querySelector('.side-panel-header').classList.add('sticky');
+					// Check if this feature is already selected
+					if (selectedFeatures.has(keyCode)) {
+						// Remove from selection
+						selectedFeatures.delete(keyCode);
+					} else {
+						// Add to selection
+						selectedFeatures.set(keyCode, clickedFeature);
+					}
+					
+					// Update highlight filter
+					if (selectedFeatures.size > 0) {
+						const selectedKeyCodes = Array.from(selectedFeatures.keys());
+						map.setFilter('tokyo-layer-highlight', ['in', 'KEY_CODE', ...selectedKeyCodes]);
+						
+						// Update side panel
+						if (selectedFeatures.size === 1) {
+							updateSidePanel(Array.from(selectedFeatures.values())[0]);
+						} else {
+							updateSidePanelMultiple(selectedFeatures);
+						}
+						
+						isSticky = true;
+						sidePanel.classList.add('open', 'sticky');
+						document.querySelector('.side-panel-header').classList.add('sticky');
+					} else {
+						// No features selected, clear everything
+						map.setFilter('tokyo-layer-highlight', ['==', 'KEY_CODE', '']);
+						isSticky = false;
+						sidePanel.classList.remove('open', 'sticky');
+						document.querySelector('.side-panel-header').classList.remove('sticky');
+					}
 				} else {
-					// Empty area touched
-					selectedFeature = null;
+					// Empty area touched - clear all selections
+					selectedFeatures.clear();
 					isSticky = false;
 					
 					map.setFilter('tokyo-layer-highlight', ['==', 'KEY_CODE', '']);

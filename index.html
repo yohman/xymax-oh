@@ -21,12 +21,23 @@
         <button class="category-button" data-category="other">Other</button>
     </div>
     
+
+    
     <!-- Hidden Options Panel -->
     <div id="options-panel" class="options-panel">
         <div class="options-panel-toggle" id="options-toggle">
             <span class="toggle-arrow">▶</span>
         </div>
         <div class="options-panel-content">
+            <div class="options-panel-section">
+                <div class="options-panel-section-title">Selection</div>
+                <div class="options-panel-select">
+                    <button id="select-mode-button" class="options-select-button">
+                        <span class="select-icon">⬚</span> Rectangle Select
+                    </button>
+                </div>
+            </div>
+            
             <div class="options-panel-section">
                 <div class="options-panel-section-title">View Options</div>
                 <div class="options-panel-toggles">
@@ -68,11 +79,37 @@
             <div class="side-panel-header">
                 <div class="side-panel-title" id="panel-title"></div>
                 <div class="side-panel-description" id="panel-description"></div>
-            </div>
-            
-            <div class="side-panel-section">
-                <!-- <div class="side-panel-section-title">Year Comparison</div> -->
-                <table class="side-panel-table" id="panel-table"></table>
+                
+                <!-- Category Summary Section -->
+                <div class="side-panel-category-summary" id="panel-category-summary">
+                    <div class="category-summary-item" data-category="office">
+                        <div class="category-arrow">⬆︎</div>
+                        <div class="category-value">0 m²</div>
+                        <div class="category-years">
+                            <div class="year-value start">0 m²</div>
+                            <div class="year-value end">0 m²</div>
+                        </div>
+                        <div class="category-label">Office</div>
+                    </div>
+                    <div class="category-summary-item" data-category="housing">
+                        <div class="category-arrow">⬆︎</div>
+                        <div class="category-value">0 m²</div>
+                        <div class="category-years">
+                            <div class="year-value start">0 m²</div>
+                            <div class="year-value end">0 m²</div>
+                        </div>
+                        <div class="category-label">Housing</div>
+                    </div>
+                    <div class="category-summary-item" data-category="other">
+                        <div class="category-arrow">⬆︎</div>
+                        <div class="category-value">0 m²</div>
+                        <div class="category-years">
+                            <div class="year-value start">0 m²</div>
+                            <div class="year-value end">0 m²</div>
+                        </div>
+                        <div class="category-label">Other</div>
+                    </div>
+                </div>
             </div>
             
             <div class="side-panel-section">
