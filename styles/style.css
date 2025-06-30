@@ -193,12 +193,13 @@ html, body {
 	
 	.mobile-panel-handle {
 		display: block;
-		width: 40px;
-		height: 4px;
-		background: #666;
-		border-radius: 2px;
-		margin: 12px auto 8px auto;
-		opacity: 0.7;
+		width: 50px;
+		height: 5px;
+		background: #888;
+		border-radius: 3px;
+		margin: 15px auto 12px auto;
+		opacity: 0.8;
+		cursor: grab;
 	}
 	
 	.side-panel-content {
@@ -899,7 +900,7 @@ html, body {
 	}
 	
 	.options-panel {
-		left: -290px;
+		left: -300px;
 		width: 300px;
 		top: 15px;
 	}

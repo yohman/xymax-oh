@@ -820,7 +820,7 @@ function initMap(geoJsonData) {
 			const touchDuration = Date.now() - touchStartTime;
 			
 			// Only treat as click if touch was brief (not a pan/zoom)
-			if (touchDuration < 300) {
+			if (touchDuration < 500) {
 				const features = map.queryRenderedFeatures(e.point, { layers: ['tokyo-layer'] });
 				
 				if (features.length > 0) {
@@ -870,51 +870,69 @@ function initMap(geoJsonData) {
 				}
 			}
 		});
+		
+		// Mobile side panel swipe-to-dismiss functionality
+		if (window.innerWidth <= 768) {
+			let startY = 0;
+			let currentY = 0;
+			let isDragging = false;
+			let hasMoved = false;
+			
+			sidePanel.addEventListener('touchstart', (e) => {
+				if (!sidePanel.classList.contains('open')) return;
+				
+				const touch = e.touches[0];
+				const rect = sidePanel.getBoundingClientRect();
+				const relativeY = touch.clientY - rect.top;
+				
+				// Only handle swipes that start from the top 60px of the panel (handle area)
+				if (relativeY > 60) return;
+				
+				startY = touch.clientY;
+				currentY = startY;
+				isDragging = true;
+				hasMoved = false;
+				sidePanel.style.transition = 'none';
+			});
+			
+			sidePanel.addEventListener('touchmove', (e) => {
+				if (!isDragging || !sidePanel.classList.contains('open')) return;
+				
+				e.preventDefault();
+				currentY = e.touches[0].clientY;
+				const deltaY = currentY - startY;
+				hasMoved = Math.abs(deltaY) > 10;
+				
+				// Only allow dragging down (positive deltaY)
+				if (deltaY > 0) {
+					const newBottom = Math.min(0, -deltaY);
+					sidePanel.style.bottom = `${newBottom}px`;
+				}
+			});
+			
+			sidePanel.addEventListener('touchend', (e) => {
+				if (!isDragging) return;
+				
+				isDragging = false;
+				sidePanel.style.transition = 'bottom 0.3s ease';
+				
+				const deltaY = currentY - startY;
+				
+				// If dragged down more than 100px, close the panel
+				if (deltaY > 100) {
+					sidePanel.classList.remove('open', 'sticky');
+					sidePanel.style.bottom = '';
+					// Clear selections
+					selectedFeatures.clear();
+					map.setFilter('tokyo-layer-highlight', ['==', 'KEY_CODE', '']);
+					isSticky = false;
+				} else {
+					// Snap back to open position
+					sidePanel.style.bottom = '0';
+				}
+			});
+		}
 	});
 
 	return map;
-}
-
-// Mobile side panel swipe-to-dismiss functionality
-if (window.innerWidth <= 768) {
-	let startY = 0;
-	let currentY = 0;
-	let isDragging = false;
-	
-	sidePanel.addEventListener('touchstart', (e) => {
-		startY = e.touches[0].clientY;
-		isDragging = true;
-		sidePanel.style.transition = 'none';
-	});
-	
-	sidePanel.addEventListener('touchmove', (e) => {
-		if (!isDragging) return;
-		
-		currentY = e.touches[0].clientY;
-		const deltaY = currentY - startY;
-		
-		// Only allow dragging down (positive deltaY)
-		if (deltaY > 0) {
-			const newBottom = Math.max(-deltaY, -window.innerHeight * 0.75);
-			sidePanel.style.bottom = `${newBottom}px`;
-		}
-	});
-	
-	sidePanel.addEventListener('touchend', (e) => {
-		if (!isDragging) return;
-		
-		isDragging = false;
-		sidePanel.style.transition = 'bottom 0.3s ease';
-		
-		const deltaY = currentY - startY;
-		
-		// If dragged down more than 100px, close the panel
-		if (deltaY > 100) {
-			sidePanel.classList.remove('open');
-			sidePanel.style.bottom = '';
-		} else {
-			// Snap back to open position
-			sidePanel.style.bottom = '0';
-		}
-	});
 }
