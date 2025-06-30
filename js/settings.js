@@ -20,7 +20,10 @@ xymax.defaults = {
     defaultStartYear: 1996,
     defaultEndYear: 2023,
     animationDuration: 800,
-    mapMode: '3d' // '3d' or '2d'
+    mapMode: '3d', // '3d' or '2d'
+    defaultBasemap: 'satellite', // 'dark' or 'satellite'
+    defaultLabelsVisible: false, // true or false
+    defaultTransparency: 0.8 // 0.0 to 1.0
 };
 
 // Color scheme for diverging scale
@@ -69,7 +72,84 @@ xymax.basemaps = {
 };
 
 // Current basemap state
-xymax.currentBasemap = 'dark';
+xymax.currentBasemap = xymax.defaults.defaultBasemap;
+
+// Labels layer configuration
+xymax.labelsLayer = {
+    source: {
+        'google-labels': {
+            type: "raster",
+            tiles: [
+                "https://mt1.google.com/vt/lyrs=h&x={x}&y={y}&z={z}"
+            ],
+            tileSize: 256,
+            attribution: "Map data &copy; <a href=\"https://www.google.com/intl/en_us/help/terms_maps/\" target=\"_blank\">Google</a>",
+            maxzoom: 21
+        }
+    },
+    layer: {
+        id: "google-labels-layer",
+        type: "raster",
+        source: "google-labels"
+    }
+};
+
+// Labels state
+xymax.labelsVisible = xymax.defaults.defaultLabelsVisible;
+
+// Transparency state
+xymax.currentTransparency = xymax.defaults.defaultTransparency;
+
+// Update transparency function
+xymax.updateTransparency = function(opacity) {
+    if (!map) return;
+    
+    xymax.currentTransparency = opacity;
+    
+    // Update all GeoJSON layers
+    if (map.getLayer('tokyo-layer')) {
+        map.setPaintProperty('tokyo-layer', 'fill-extrusion-opacity', opacity);
+    }
+    if (map.getLayer('tokyo-layer-highlight')) {
+        map.setPaintProperty('tokyo-layer-highlight', 'fill-extrusion-opacity', Math.min(1.0, opacity + 0.2));
+    }
+    if (map.getLayer('tokyo-layer-hover')) {
+        map.setPaintProperty('tokyo-layer-hover', 'fill-extrusion-opacity', Math.min(0.5, opacity));
+    }
+};
+
+// Toggle labels function
+xymax.toggleLabels = function() {
+    if (!map) return;
+    
+    xymax.labelsVisible = !xymax.labelsVisible;
+    
+    if (xymax.labelsVisible) {
+        // Add labels if not already present
+        if (!map.getSource('google-labels')) {
+            map.addSource('google-labels', xymax.labelsLayer.source['google-labels']);
+        }
+        if (!map.getLayer('google-labels-layer')) {
+            map.addLayer(xymax.labelsLayer.layer);
+        }
+        map.setLayoutProperty('google-labels-layer', 'visibility', 'visible');
+    } else {
+        // Hide labels
+        if (map.getLayer('google-labels-layer')) {
+            map.setLayoutProperty('google-labels-layer', 'visibility', 'none');
+        }
+    }
+    
+    // Update UI - now it's a toggle switch
+    const toggle = document.getElementById('labels-toggle');
+    if (toggle) {
+        if (xymax.labelsVisible) {
+            toggle.classList.add('active');
+        } else {
+            toggle.classList.remove('active');
+        }
+    }
+};
 
 // Toggle basemap function
 xymax.toggleBasemap = function(basemapId) {
@@ -109,7 +189,7 @@ xymax.toggleBasemap = function(basemapId) {
                     paint: {
                         'fill-extrusion-color': ['get', 'extrusionColor'],
                         'fill-extrusion-height': ['get', 'extrusionHeight'],
-                        'fill-extrusion-opacity': xymax.defaults.extrusionOpacity
+                        'fill-extrusion-opacity': xymax.currentTransparency
                     }
                 });
                 
@@ -121,7 +201,7 @@ xymax.toggleBasemap = function(basemapId) {
                     paint: {
                         'fill-extrusion-color': '#ffff00',
                         'fill-extrusion-height': ['get', 'extrusionHeight'],
-                        'fill-extrusion-opacity': 1.0
+                        'fill-extrusion-opacity': Math.min(1.0, xymax.currentTransparency + 0.2)
                     },
                     filter: ['==', 'KEY_CODE', '']
                 });
@@ -134,7 +214,7 @@ xymax.toggleBasemap = function(basemapId) {
                     paint: {
                         'fill-extrusion-color': '#ffffff',
                         'fill-extrusion-height': ['get', 'extrusionHeight'],
-                        'fill-extrusion-opacity': 0.5
+                        'fill-extrusion-opacity': Math.min(0.5, xymax.currentTransparency)
                     },
                     filter: ['==', 'KEY_CODE', '']
                 });
@@ -196,6 +276,12 @@ xymax.toggleBasemap = function(basemapId) {
                         window.sidePanel.classList.remove('open');
                     }
                 });
+                
+                // Re-add labels layer if enabled
+                if (xymax.labelsVisible) {
+                    map.addSource('google-labels', xymax.labelsLayer.source['google-labels']);
+                    map.addLayer(xymax.labelsLayer.layer);
+                }
                 
                 // Re-apply current visualization
                 extrudePolygons(currentStartYear, currentEndYear, currentCategory);

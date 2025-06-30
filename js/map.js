@@ -138,7 +138,7 @@ function initMap(geoJsonData) {
 	
 	map = new mapboxgl.Map({
 		container: 'map',
-		style: xymax.basemaps.dark,
+		style: xymax.basemaps[xymax.defaults.defaultBasemap],
 		center: [xymax.defaults.lon, xymax.defaults.lat],
 		zoom: xymax.defaults.zoom,
 		pitch: xymax.defaults.pitch,
@@ -160,7 +160,7 @@ function initMap(geoJsonData) {
 			paint: {
 				'fill-extrusion-color': ['get', 'extrusionColor'],
 				'fill-extrusion-height': ['get', 'extrusionHeight'],
-				'fill-extrusion-opacity': xymax.defaults.extrusionOpacity
+				'fill-extrusion-opacity': xymax.defaults.defaultTransparency
 			}
 		});
 		
@@ -172,7 +172,7 @@ function initMap(geoJsonData) {
 			paint: {
 				'fill-extrusion-color': '#ffff00',
 				'fill-extrusion-height': ['get', 'extrusionHeight'],
-				'fill-extrusion-opacity': 1.0
+				'fill-extrusion-opacity': Math.min(1.0, xymax.defaults.defaultTransparency + 0.2)
 			},
 			filter: ['==', 'KEY_CODE', '']
 		});
@@ -185,10 +185,18 @@ function initMap(geoJsonData) {
 			paint: {
 				'fill-extrusion-color': '#ffff00',
 				'fill-extrusion-height': ['get', 'extrusionHeight'],
-				'fill-extrusion-opacity': 0.3
+				'fill-extrusion-opacity': Math.min(0.5, xymax.defaults.defaultTransparency)
 			},
 			filter: ['==', 'KEY_CODE', '']
 		});
+		
+		// Add labels layer
+		if (xymax.labelsLayer && xymax.labelsLayer.source && xymax.labelsLayer.layer) {
+			map.addSource('google-labels', xymax.labelsLayer.source['google-labels']);
+			map.addLayer(xymax.labelsLayer.layer);
+			// Set visibility based on default setting
+			map.setLayoutProperty('google-labels-layer', 'visibility', xymax.labelsVisible ? 'visible' : 'none');
+		}
 		
 		// Fit map to bounds
 		const bounds = new mapboxgl.LngLatBounds();

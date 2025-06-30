@@ -191,9 +191,8 @@ html, body {
 	}
 	
 	#footer {
-		height: 90px;
-		padding: 8px 10px;
-		gap: 6px;
+		height: 65px;
+		padding: 10px;
 	}
 	
 	.year-slider-container {
@@ -275,6 +274,12 @@ html, body {
 	}
 	
 	.basemap-button {
+		width: 70px;
+		height: 35px;
+		font-size: 11px;
+	}
+	
+	.control-button {
 		width: 70px;
 		height: 35px;
 		font-size: 11px;
@@ -476,24 +481,22 @@ html, body {
 	bottom: 0;
 	left: 0;
 	right: 0;
-	height: 100px;
+	height: 70px;
 	background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
 	display: flex;
 	flex-direction: column;
 	justify-content: center;
 	align-items: center;
-	gap: 8px;
 	z-index: 1000;
 	box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
 	border-top: 1px solid #444;
-	padding: 8px 15px;
+	padding: 12px 15px;
 }
 
 /* Year Slider */
 .year-slider-container {
 	width: min(500px, 90vw);
 	position: relative;
-	margin-bottom: 5px;
 }
 
 .year-slider {
@@ -575,10 +578,11 @@ html, body {
 }
 
 .slider-label {
-	font-size: 10px;
+	display: block;
+	font-size: 0.9em;
 	color: #cccccc;
 	font-weight: 500;
-	text-align: center;
+	margin-bottom: 8px;
 }
 
 /* Category Buttons */
@@ -597,7 +601,6 @@ html, body {
 	font-size: 12px;
 	font-weight: 600;
 	font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
-	border-radius: 6px;
 	cursor: pointer;
 	transition: all 0.3s ease;
 	text-transform: uppercase;
@@ -647,39 +650,132 @@ html, body {
 }
 
 /* ===========================================================
-	8. Title Panel
+	8. Standalone Title
 	=========================================================== */
-#title-panel {
+#standalone-title {
+	position: fixed;
+	top: 10px;
+	left: 50%;
+	transform: translateX(-50%);
+	font-size: 4em;
+	font-weight: 700;
+	color: rgba(255, 255, 255, 0.7);
+	font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+	letter-spacing: 0.02em;
+	z-index: 500;
+	text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+	pointer-events: none;
+}
+
+/* Title Category Buttons */
+.title-category-buttons {
+	position: fixed;
+	top: 100px;
+	left: 50%;
+	transform: translateX(-50%);
+	display: flex;
+	gap: 10px;
+	z-index: 1000;
+}
+
+.title-category-buttons .category-button {
+	padding: 8px 16px;
+	background: rgba(0, 0, 0, 0.7);
+	color: #ffffff;
+	font-size: 0.9em;
+	font-weight: 500;
+	border: 1px solid #444;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	backdrop-filter: blur(10px);
+}
+
+.title-category-buttons .category-button:hover {
+	background: rgba(255, 255, 255, 0.1);
+	border-color: #666;
+}
+
+.title-category-buttons .category-button.active {
+	background: rgba(255, 255, 255, 0.2);
+	border-color: #888;
+	color: #ffffff;
+}
+
+/* Mobile Styles */
+@media (max-width: 768px) {
+	.title-category-buttons {
+		top: 80px;
+		gap: 8px;
+	}
+	
+	.title-category-buttons .category-button {
+		padding: 6px 12px;
+		font-size: 0.8em;
+	}
+}
+
+/* ===========================================================
+	9. Options Panel
+	=========================================================== */
+.options-panel {
 	position: fixed;
 	top: 20px;
-	left: 20px;
+	left: -320px;
+	width: 320px;
 	background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
-	padding: 25px 30px;
-	border-radius: 12px;
 	border: 1px solid #444;
 	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 	z-index: 1000;
-	min-width: 280px;
+	transition: left 0.3s ease;
 }
 
-.title-panel-title {
-	font-size: 2.2em;
-	font-weight: 700;
-	color: #ffffff;
-	margin-bottom: 8px;
-	font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
-	letter-spacing: 0.02em;
+.options-panel.open {
+	left: 0;
 }
 
-.title-panel-description {
-	font-size: 1em;
-	color: #b0b8c1;
+.options-panel-toggle {
+	position: absolute;
+	right: -40px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 40px;
+	height: 60px;
+	background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+	border: 1px solid #444;
+	border-left: none;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	transition: all 0.3s ease;
+}
+
+.options-panel-toggle:hover {
+	background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+}
+
+.toggle-arrow {
+	color: #00e676;
+	font-size: 16px;
+	transition: transform 0.3s ease;
+}
+
+.options-panel.open .toggle-arrow {
+	transform: rotate(180deg);
+}
+
+.options-panel-content {
+	padding: 25px 30px;
+}
+
+.options-panel-toggles {
+	display: flex;
+	gap: 20px;
+	align-items: center;
 	margin-bottom: 20px;
-	line-height: 1.4;
-	font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 }
 
-.title-panel-toggle {
+.options-panel-toggle-item {
 	display: flex;
 	align-items: center;
 	gap: 12px;
@@ -696,7 +792,6 @@ html, body {
 	width: 50px;
 	height: 26px;
 	background: #444;
-	border-radius: 13px;
 	cursor: pointer;
 	transition: all 0.3s ease;
 	border: 1px solid #555;
@@ -714,7 +809,6 @@ html, body {
 	width: 20px;
 	height: 20px;
 	background: #fff;
-	border-radius: 50%;
 	transition: all 0.3s ease;
 	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
@@ -723,23 +817,82 @@ html, body {
 	left: 26px;
 }
 
-/* Mobile Styles for Title Panel */
+.options-panel-slider {
+	margin-top: 15px;
+}
+
+.toggle-switch.active .toggle-handle {
+	left: 26px;
+}
+
+/* Mobile Styles for Standalone Title and Options Panel */
 @media (max-width: 768px) {
-	#title-panel {
+	#standalone-title {
+		top: 20px;
+		font-size: 2.5em;
+	}
+	
+	.options-panel {
+		left: -260px;
+		width: 300px;
 		top: 15px;
-		left: 15px;
-		right: 15px;
-		padding: 20px;
-		min-width: auto;
 	}
 	
-	.title-panel-title {
-		font-size: 1.8em;
+	.options-panel-toggle {
+		right: -35px;
+		width: 35px;
+		height: 50px;
 	}
 	
-	.title-panel-description {
-		font-size: 0.9em;
+	.toggle-arrow {
+		font-size: 14px;
+	}
+	
+	.options-panel-content {
+		padding: 20px 25px;
+	}
+	
+	.options-panel-toggles {
+		gap: 15px;
+		flex-wrap: wrap;
 		margin-bottom: 15px;
+	}
+	
+	.toggle-switch {
+		width: 45px;
+		height: 24px;
+	}
+	
+	.toggle-handle {
+		width: 18px;
+		height: 18px;
+	}
+	
+	.toggle-switch.active .toggle-handle {
+		left: 23px;
+	}
+	
+	.options-panel-slider {
+		margin-top: 12px;
+	}
+	
+	.slider-label {
+		font-size: 0.8em;
+		margin-bottom: 6px;
+	}
+	
+	.transparency-slider {
+		height: 3px;
+	}
+	
+	.transparency-slider::-webkit-slider-thumb {
+		width: 14px;
+		height: 14px;
+	}
+	
+	.transparency-slider::-moz-range-thumb {
+		width: 14px;
+		height: 14px;
 	}
 }
 
@@ -750,12 +903,7 @@ html, body {
 	border-left: 3px solid #fff;
 }
 
-.side-panel-header.sticky {
-	/* background: rgba(255, 255, 255, 0.05);
-	border-radius: 8px;
-	padding: 15px;
-	margin-bottom: 20px; */
-}
+
 
 /* ===========================================================
 	8. Basemap Controls
@@ -779,7 +927,6 @@ html, body {
 	font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 	font-size: 12px;
 	font-weight: 500;
-	border-radius: 6px;
 	cursor: pointer;
 	transition: all 0.2s ease;
 	backdrop-filter: blur(10px);
@@ -804,4 +951,87 @@ html, body {
 
 .basemap-button.active:hover {
 	background: rgba(0, 230, 118, 0.3);
+}
+
+.control-button {
+	width: 80px;
+	height: 40px;
+	background: rgba(26, 26, 26, 0.9);
+	border: 2px solid #444;
+	color: #fff;
+	font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+	font-size: 12px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	backdrop-filter: blur(10px);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.control-button:hover {
+	background: rgba(42, 42, 42, 0.95);
+	border-color: #666;
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.control-button.active {
+	background: rgba(41, 121, 255, 0.2);
+	border-color: #2979ff;
+	color: #2979ff;
+	box-shadow: 0 0 15px rgba(41, 121, 255, 0.3);
+}
+
+.control-button.active:hover {
+	background: rgba(41, 121, 255, 0.3);
+}
+
+/* Transparency Slider */
+.title-panel-slider {
+	margin-top: 15px;
+}
+
+.transparency-slider {
+	width: 100%;
+	height: 4px;
+	background: #444;
+	outline: none;
+	border: none;
+	cursor: pointer;
+	appearance: none;
+	-webkit-appearance: none;
+}
+
+.transparency-slider::-webkit-slider-thumb {
+	appearance: none;
+	-webkit-appearance: none;
+	width: 16px;
+	height: 16px;
+	background: #00e676;
+	cursor: pointer;
+	border: none;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+	transition: all 0.2s ease;
+}
+
+.transparency-slider::-webkit-slider-thumb:hover {
+	background: #00d169;
+	transform: scale(1.1);
+}
+
+.transparency-slider::-moz-range-thumb {
+	width: 16px;
+	height: 16px;
+	background: #00e676;
+	cursor: pointer;
+	border: none;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+	transition: all 0.2s ease;
+}
+
+.transparency-slider::-moz-range-thumb:hover {
+	background: #00d169;
+	transform: scale(1.1);
 }

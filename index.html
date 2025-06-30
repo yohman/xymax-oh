@@ -11,19 +11,54 @@
 <body>
     <div id="map"></div>
     
-    <!-- Basemap Toggle Controls -->
-    <div id="basemap-controls">
-        <button class="basemap-button active" data-basemap="dark">Dark</button>
-        <button class="basemap-button" data-basemap="satellite">Satellite</button>
+    <!-- Standalone Title -->
+    <div id="standalone-title">東京物語</div>
+    
+    <!-- Category Buttons -->
+    <div id="title-category-buttons" class="title-category-buttons">
+        <button class="category-button active" data-category="office">Office</button>
+        <button class="category-button" data-category="housing">Housing</button>
+        <button class="category-button" data-category="other">Other</button>
     </div>
     
-    <div id="title-panel">
-        <div class="title-panel-title">東京物語</div>
-        <div class="title-panel-description">A transforming metropolis...</div>
-        <div class="title-panel-toggle">
-            <span class="toggle-label">3D</span>
-            <div class="toggle-switch active" id="map-mode-toggle">
-                <div class="toggle-handle"></div>
+    <!-- Hidden Options Panel -->
+    <div id="options-panel" class="options-panel">
+        <div class="options-panel-toggle" id="options-toggle">
+            <span class="toggle-arrow">▶</span>
+        </div>
+        <div class="options-panel-content">
+            <div class="options-panel-section">
+                <div class="options-panel-section-title">View Options</div>
+                <div class="options-panel-toggles">
+                    <div class="options-panel-toggle-item">
+                        <span class="toggle-label">3D</span>
+                        <div class="toggle-switch active" id="map-mode-toggle">
+                            <div class="toggle-handle"></div>
+                        </div>
+                    </div>
+                    <div class="options-panel-toggle-item">
+                        <span class="toggle-label">Labels</span>
+                        <div class="toggle-switch" id="labels-toggle">
+                            <div class="toggle-handle"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="options-panel-section">
+                <div class="options-panel-section-title">Basemap</div>
+                <div class="options-panel-basemap">
+                    <button class="basemap-button" data-basemap="dark">Dark</button>
+                    <button class="basemap-button active" data-basemap="satellite">Satellite</button>
+                </div>
+            </div>
+            
+            <div class="options-panel-section">
+                <div class="options-panel-slider">
+                    <label for="transparency-slider" class="slider-label">Transparency</label>
+                    <input type="range" id="transparency-slider" class="transparency-slider" 
+                           min="0" max="1" step="0.1" value="0.8">
+                </div>
             </div>
         </div>
     </div>
@@ -56,12 +91,6 @@
                 <div class="slider-handle end" id="end-handle"></div>
             </div>
             <div class="slider-labels" id="slider-labels"></div>
-        </div>
-        
-        <div class="category-buttons">
-            <button class="category-button active" data-category="office">Office</button>
-            <button class="category-button" data-category="housing">Housing</button>
-            <button class="category-button" data-category="other">Other</button>
         </div>
     </div>
     
