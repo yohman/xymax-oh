@@ -37,6 +37,10 @@ html, body {
 	border-left: 1px solid #444;
 }
 
+.mobile-panel-handle {
+	display: none;
+}
+
 .side-panel.open {
 	right: 0;
 }
@@ -171,18 +175,30 @@ html, body {
 /* Mobile Styles */
 @media (max-width: 768px) {
 	.side-panel {
-		bottom: -70vh;
+		bottom: -75vh;
 		right: 0;
 		top: auto;
 		width: 100vw;
-		height: 70vh;
+		height: 75vh;
 		border-left: none;
 		border-top: 1px solid #444;
 		transition: bottom 0.3s ease;
+		z-index: 1100;
+		border-radius: 15px 15px 0 0;
 	}
 	
 	.side-panel.open {
-		bottom: 90px; /* Above footer */
+		bottom: 0;
+	}
+	
+	.mobile-panel-handle {
+		display: block;
+		width: 40px;
+		height: 4px;
+		background: #666;
+		border-radius: 2px;
+		margin: 12px auto 8px auto;
+		opacity: 0.7;
 	}
 	
 	.side-panel-content {
@@ -883,7 +899,7 @@ html, body {
 	}
 	
 	.options-panel {
-		left: -260px;
+		left: -290px;
 		width: 300px;
 		top: 15px;
 	}

@@ -874,3 +874,47 @@ function initMap(geoJsonData) {
 
 	return map;
 }
+
+// Mobile side panel swipe-to-dismiss functionality
+if (window.innerWidth <= 768) {
+	let startY = 0;
+	let currentY = 0;
+	let isDragging = false;
+	
+	sidePanel.addEventListener('touchstart', (e) => {
+		startY = e.touches[0].clientY;
+		isDragging = true;
+		sidePanel.style.transition = 'none';
+	});
+	
+	sidePanel.addEventListener('touchmove', (e) => {
+		if (!isDragging) return;
+		
+		currentY = e.touches[0].clientY;
+		const deltaY = currentY - startY;
+		
+		// Only allow dragging down (positive deltaY)
+		if (deltaY > 0) {
+			const newBottom = Math.max(-deltaY, -window.innerHeight * 0.75);
+			sidePanel.style.bottom = `${newBottom}px`;
+		}
+	});
+	
+	sidePanel.addEventListener('touchend', (e) => {
+		if (!isDragging) return;
+		
+		isDragging = false;
+		sidePanel.style.transition = 'bottom 0.3s ease';
+		
+		const deltaY = currentY - startY;
+		
+		// If dragged down more than 100px, close the panel
+		if (deltaY > 100) {
+			sidePanel.classList.remove('open');
+			sidePanel.style.bottom = '';
+		} else {
+			// Snap back to open position
+			sidePanel.style.bottom = '0';
+		}
+	});
+}
