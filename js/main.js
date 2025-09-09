@@ -37,9 +37,9 @@ document.addEventListener('DOMContentLoaded', () => {
 		window.selectedFeatures = new Map();
 	}
 	features.forEach(f => window.selectedFeatures.set(f.properties.KEY_CODE, f));
-	// Show summary info panel and make selection sticky
-	if (window.updateSidePanelMultiple) {
-		window.updateSidePanelMultiple(window.selectedFeatures);
+	// Always update info panel with selected keycodes (single/multi)
+	if (window.updateSidePanelSingle) {
+		window.updateSidePanelSingle(Array.from(window.selectedFeatures.keys()));
 	}
 	// Make summary panel visible and sticky
 	if (window.sidePanel) {
@@ -76,84 +76,104 @@ document.addEventListener('DOMContentLoaded', () => {
 	// Add event listener for AREA_NAME dropdown
 	const areaDropdown = document.getElementById('area-dropdown');
 	if (areaDropdown) {
-		areaDropdown.addEventListener('change', async (e) => {
-		const selectedArea = e.target.value;
-		if (!selectedArea) return;
-		// Load salsa.geojson and tokyo_mesh.geojson
-		const [salsaRes, meshRes] = await Promise.all([
-			fetch('data/salsa.geojson'),
-			fetch('data/tokyo_mesh.geojson')
-		]);
-		const salsaData = await salsaRes.json();
-		const meshData = await meshRes.json();
-		// Find selected AREA_NAME polygon
-		const areaFeature = salsaData.features.find(f => f.properties.AREA_NAME === selectedArea);
-		if (!areaFeature) {
-			return;
-		}
-		// Find intersecting mesh polygons
-		const turfPoly = areaFeature.geometry;
-		// Use turf.js for intersection
-		const intersectingMeshes = meshData.features.filter(meshFeature => {
-			try {
-			return turf.booleanIntersects(
-				meshFeature.geometry,
-				turfPoly
-			);
-			} catch (err) {
-			return false;
-			}
-		});
-		if (intersectingMeshes.length > 0) {
-			// Feed selectMeshPolygonsByIds with the selected polygon array
-			const keyCodes = intersectingMeshes.map(f => f.properties.KEY_CODE);
-			window.selectMeshPolygonsByIds(keyCodes);
-			// Update info panel title to show area and count
-			const panelTitle = document.getElementById('panel-title');
-			if (panelTitle) {
-				panelTitle.textContent = `${selectedArea} (${keyCodes.length})`;
+		areaDropdown.addEventListener('change', async function areaDropdownHandler(e) {
+			const selectedArea = e.target.value;
+			if (!selectedArea) return;
+
+			// Wait for map and tokyo-data source to be ready
+			function waitForTokyoDataSource(retries = 10) {
+				if (window.map && window.map.getSource && window.map.getSource('tokyo-data') && window.map.getSource('tokyo-data')._data) {
+					proceed();
+				} else if (retries > 0) {
+					setTimeout(() => waitForTokyoDataSource(retries - 1), 100);
+				} else {
+					alert('Tokyo data is not loaded yet. Please try again.');
+				}
 			}
 
-			// Draw outline for selected polygon (add a new layer if not exists), use orange for visibility
-			const orange = '#ff9800';
-			if (!window.map.getLayer('area-outline')) {
-				window.map.addLayer({
-					id: 'area-outline',
-					type: 'line',
-					source: {
-						type: 'geojson',
-						data: areaFeature
-					},
-					paint: {
-						'line-color': orange,
-						'line-width': 4
+			async function proceed() {
+				// Load salsa.geojson and tokyo_mesh.geojson
+				const [salsaRes, meshRes] = await Promise.all([
+					fetch('data/salsa.geojson'),
+					fetch('data/tokyo_mesh.geojson')
+				]);
+				const salsaData = await salsaRes.json();
+				const meshData = await meshRes.json();
+				// Find selected AREA_NAME polygon
+				const areaFeature = salsaData.features.find(f => f.properties.AREA_NAME === selectedArea);
+				if (!areaFeature) {
+					return;
+				}
+				// Find intersecting mesh polygons
+				const turfPoly = areaFeature.geometry;
+				// Use turf.js for intersection
+				const intersectingMeshes = meshData.features.filter(meshFeature => {
+					try {
+						return turf.booleanIntersects(
+							meshFeature.geometry,
+							turfPoly
+						);
+					} catch (err) {
+						return false;
 					}
 				});
-			} else {
-				window.map.getSource('area-outline').setData(areaFeature);
-				window.map.setPaintProperty('area-outline', 'line-color', orange);
-			}
+				if (intersectingMeshes.length > 0) {
+					// Feed selectMeshPolygonsByIds with the selected polygon array
+					const keyCodes = intersectingMeshes.map(f => f.properties.KEY_CODE);
+					window.selectMeshPolygonsByIds(keyCodes);
+					// Force update info panel with correct data after selection
+					if (window.updateSidePanelSingle) {
+						setTimeout(() => window.updateSidePanelSingle(keyCodes), 0);
+					}
+					// Update info panel title to show area and count
+					const panelTitle = document.getElementById('panel-title');
+					if (panelTitle) {
+						panelTitle.textContent = `${selectedArea} (${keyCodes.length})`;
+					}
 
-			// Zoom to the extent of all selected mesh polygons (handles multipolygons correctly)
-			if (intersectingMeshes.length > 0) {
-				const bounds = new mapboxgl.LngLatBounds();
-				intersectingMeshes.forEach(f => {
-					if (f.geometry.type === 'Polygon') {
-						f.geometry.coordinates[0].forEach(coord => bounds.extend(coord));
-					} else if (f.geometry.type === 'MultiPolygon') {
-						f.geometry.coordinates.forEach(poly => {
-							poly[0].forEach(coord => bounds.extend(coord));
+					// Draw outline for selected polygon (add a new layer if not exists), use orange for visibility
+					const orange = '#ff9800';
+					if (!window.map.getLayer('area-outline')) {
+						window.map.addLayer({
+							id: 'area-outline',
+							type: 'line',
+							source: {
+								type: 'geojson',
+								data: areaFeature
+							},
+							paint: {
+								'line-color': orange,
+								'line-width': 4
+							}
 						});
+					} else {
+						window.map.getSource('area-outline').setData(areaFeature);
+						window.map.setPaintProperty('area-outline', 'line-color', orange);
 					}
-				});
-				window.map.fitBounds(bounds, { padding: 200, duration: 1000 });
+
+					// Zoom to the extent of all selected mesh polygons (handles multipolygons correctly)
+					if (intersectingMeshes.length > 0) {
+						const bounds = new mapboxgl.LngLatBounds();
+						intersectingMeshes.forEach(f => {
+							if (f.geometry.type === 'Polygon') {
+								f.geometry.coordinates[0].forEach(coord => bounds.extend(coord));
+							} else if (f.geometry.type === 'MultiPolygon') {
+								f.geometry.coordinates.forEach(poly => {
+									poly[0].forEach(coord => bounds.extend(coord));
+								});
+							}
+						});
+						window.map.fitBounds(bounds, { padding: 200, duration: 1000 });
+					}
+
+					// Set mesh transparency to 10%
+					if (window.xymax && typeof window.xymax.updateTransparency === 'function') {
+						window.xymax.updateTransparency(0.1);
+					}
+				}
 			}
 
-			// Set mesh transparency to 10%
-			if (window.xymax && typeof window.xymax.updateTransparency === 'function') {
-				window.xymax.updateTransparency(0.1);
-			}
-		}
+			waitForTokyoDataSource();
 		});
 	}
 
