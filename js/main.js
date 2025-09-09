@@ -218,13 +218,17 @@ window.currentEndYear = window.currentEndYear || 2023;
 // Function to update side panel for a single polygon (hover)
 window.updateSidePanelSingle = function(keycodes) {
 	if (!Array.isArray(keycodes) || keycodes.length === 0) return;
-	// Look up features by keycodes from the map source
+	// Look up features by keycodes from the in-memory GeoJSON (tokyo-data)
 	let features = [];
 	if (window.map && window.map.getSource && window.map.getSource('tokyo-data')) {
-		// Use querySourceFeatures to get all features with matching KEY_CODEs
-		features = window.map.querySourceFeatures('tokyo-data', {
-			filter: ['in', 'KEY_CODE', ...keycodes]
-		});
+		// Use the full GeoJSON data for consistent lookups
+		let geojson = null;
+		try {
+			geojson = window.map.getSource('tokyo-data')._data;
+		} catch (e) {}
+		if (geojson && geojson.features) {
+			features = geojson.features.filter(f => keycodes.includes(f.properties.KEY_CODE) || keycodes.includes(Number(f.properties.KEY_CODE)));
+		}
 	}
 	if (features.length === 0) return;
 	// Log all hovered keycodes
