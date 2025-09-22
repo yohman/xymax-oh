@@ -189,11 +189,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	// Initialize basemap buttons to show correct default
 	document.querySelectorAll('.basemap-button').forEach(btn => {
-	btn.classList.remove('active');
+		btn.classList.remove('active');
+		btn.addEventListener('click', function() {
+			const basemapId = btn.getAttribute('data-basemap');
+			if (xymax.toggleBasemap) {
+				xymax.toggleBasemap(basemapId);
+			}
+		});
 	});
 	const defaultButton = document.querySelector(`[data-basemap="${xymax.defaults.defaultBasemap}"]`);
 	if (defaultButton) {
-	defaultButton.classList.add('active');
+		defaultButton.classList.add('active');
 	}
 
 	// Initialize labels toggle to show correct default
@@ -313,17 +319,41 @@ window.onSliderYearChange = function(startYear, endYear) {
 	const housingDiff = Math.round(housingEnd - housingStart);
 	const officePctStart = (officeStart + housingStart) ? Math.round((officeStart / (officeStart + housingStart)) * 100) : 0;
 	const officePctEnd = (officeEnd + housingEnd) ? Math.round((officeEnd / (officeEnd + housingEnd)) * 100) : 0;
+	const housingPctStart = (officeStart + housingStart) ? Math.round((housingStart / (officeStart + housingStart)) * 100) : 0;
+	const housingPctEnd = (officeEnd + housingEnd) ? Math.round((housingEnd / (officeEnd + housingEnd)) * 100) : 0;
 	let summaryText = '';
 	if (officeStart || officeEnd || housingStart || housingEnd) {
-		   const officeChange = officeDiff > 0
-			   ? `<b style='color:#00e676;'>increase</b>`
-			   : `<b style='color:#e53935;'>decrease</b>`;
-		   const housingChange = housingDiff > 0
-			   ? `<b style='color:#00e676;'>increase</b>`
-			   : `<b style='color:#e53935;'>decrease</b>`;
-		   summaryText = `<div style='font-size:1em;color:#fff;margin-bottom:6px;'>
-			   In this area, there is a ${officeChange} of office space from ${startYear} to ${endYear} by ${Math.abs(officeDiff).toLocaleString()} square meters, and a ${housingChange} of housing space by ${Math.abs(housingDiff).toLocaleString()} square meters.
-		   </div>`;
+		const officeChange = officeDiff > 0
+			? `<b style='color:#00e676;'>increase</b>`
+			: `<b style='color:#e53935;'>decrease</b>`;
+		const housingChange = housingDiff > 0
+			? `<b style='color:#00e676;'>increase</b>`
+			: `<b style='color:#e53935;'>decrease</b>`;
+		summaryText = `<div style='font-size:1em;color:#fff;margin-bottom:6px;'>
+			In this area, there is a ${officeChange} of office space from ${startYear} to ${endYear} by ${Math.abs(officeDiff).toLocaleString()} square meters, and a ${housingChange} of housing space by ${Math.abs(housingDiff).toLocaleString()} square meters.
+		</div>`;
+
+		// Add a formal note if the direction of change in square meters differs from the direction of change in percentage
+		let extraNote = '';
+		// Office: increase in m2 but decrease in %
+		if (officeDiff > 0 && officePctEnd < officePctStart) {
+			extraNote += `<div style='font-size:0.95em;color:#fff;margin-bottom:4px;'>While the total office space has <b style='color:#00e676;'>increased</b>, its proportion relative to the total has <b style='color:#e53935;'>decreased</b>.</div>`;
+		}
+		// Office: decrease in m2 but increase in %
+		if (officeDiff < 0 && officePctEnd > officePctStart) {
+			extraNote += `<div style='font-size:0.95em;color:#fff;margin-bottom:4px;'>Although the total office space has <b style='color:#e53935;'>decreased</b>, its proportion relative to the total has <b style='color:#00e676;'>increased</b>.</div>`;
+		}
+		// Housing: increase in m2 but decrease in %
+		if (housingDiff > 0 && housingPctEnd < housingPctStart) {
+			extraNote += `<div style='font-size:0.95em;color:#fff;margin-bottom:4px;'>While the total housing space has <b style='color:#00e676;'>increased</b>, its proportion relative to the total has <b style='color:#e53935;'>decreased</b>.</div>`;
+		}
+		// Housing: decrease in m2 but increase in %
+		if (housingDiff < 0 && housingPctEnd > housingPctStart) {
+			extraNote += `<div style='font-size:0.95em;color:#fff;margin-bottom:4px;'>Although the total housing space has <b style='color:#e53935;'>decreased</b>, its proportion relative to the total has <b style='color:#00e676;'>increased</b>.</div>`;
+		}
+		if (extraNote) {
+			summaryText += extraNote;
+		}
 	}
 	// Insert after title
 	if (panelTitle && panelTitle.parentElement) {
