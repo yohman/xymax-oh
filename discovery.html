@@ -206,6 +206,101 @@
             color: #ccc;
             margin-top: 4px;
         }
+
+        /* Mobile Responsive Design */
+        @media (max-width: 768px) {
+            .split-container {
+                flex-direction: column;
+            }
+
+            .map-side, .data-side {
+                width: 100%;
+                height: 50vh;
+                min-height: 300px;
+            }
+
+            .data-side {
+                height: auto;
+                min-height: 50vh;
+            }
+
+            .map-header {
+                top: 10px;
+                left: 10px;
+            }
+
+            .back-arrow {
+                font-size: 1.5rem;
+            }
+
+            .compare-title {
+                font-size: 1.2rem;
+            }
+
+            .basemap-toggle {
+                bottom: 10px !important;
+                left: 10px !important;
+                padding: 6px 10px !important;
+                font-size: 0.85rem;
+            }
+
+            .data-content {
+                padding: 15px;
+            }
+
+            .data-title {
+                font-size: 1.3rem;
+            }
+
+            .area-name {
+                font-size: 1.5rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+
+            .stat-value {
+                font-size: 1.1rem;
+            }
+
+            .stat-label {
+                font-size: 0.8rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .map-side {
+                height: 40vh;
+                min-height: 250px;
+            }
+
+            .data-side {
+                min-height: 60vh;
+            }
+
+            .data-content {
+                padding: 10px;
+            }
+
+            .compare-title {
+                font-size: 1rem;
+            }
+
+            .back-arrow {
+                font-size: 1.3rem;
+            }
+
+            .area-name {
+                font-size: 1.2rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+        }
     </style>
 </head>
 <body>

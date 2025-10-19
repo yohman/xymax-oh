@@ -373,6 +373,153 @@
             font-weight: 500;
             z-index: 2;
         }
+
+        /* Mobile Responsive Design */
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+                height: auto;
+                min-height: 100vh;
+            }
+
+            .map-container {
+                width: 100%;
+                height: 50vh;
+                min-height: 300px;
+            }
+
+            .data-container {
+                width: 100%;
+                height: auto;
+                min-height: 50vh;
+                border-left: none;
+                border-top: 1px solid #333;
+            }
+
+            .background-map {
+                width: 100%;
+                height: 50vh;
+            }
+
+            .map-header {
+                top: 10px;
+                left: 10px;
+            }
+
+            .back-arrow {
+                font-size: 1.5rem;
+            }
+
+            .compare-title {
+                font-size: 1.2rem;
+            }
+
+            .basemap-toggle {
+                bottom: 10px !important;
+                left: 10px !important;
+                padding: 6px 10px !important;
+                font-size: 0.85rem;
+            }
+
+            .basemap-toggle label {
+                font-size: 0.85rem !important;
+            }
+
+            .basemap-toggle select {
+                padding: 3px 6px !important;
+                font-size: 0.85rem;
+            }
+
+            .data-container {
+                padding: 15px;
+            }
+
+            .comparison-grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            .area-dropdown {
+                font-size: 0.85rem;
+                padding: 6px 10px;
+            }
+
+            .single-mode-link {
+                font-size: 1rem;
+            }
+
+            .chart-toggle {
+                flex-direction: column;
+                gap: 10px;
+                align-items: flex-start;
+            }
+
+            .toggle-label {
+                font-size: 0.85rem;
+            }
+
+            #sankey-chart {
+                height: 250px;
+            }
+
+            .comparison-category {
+                font-size: 0.8rem;
+            }
+
+            .comparison-value {
+                font-size: 1rem;
+            }
+
+            .comparison-difference {
+                font-size: 0.75rem;
+            }
+        }
+
+        /* Extra small mobile devices */
+        @media (max-width: 480px) {
+            .map-container {
+                height: 40vh;
+                min-height: 250px;
+            }
+
+            .data-container {
+                min-height: 60vh;
+                padding: 10px;
+            }
+
+            .background-map {
+                height: 40vh;
+            }
+
+            .compare-title {
+                font-size: 1rem;
+            }
+
+            .back-arrow {
+                font-size: 1.3rem;
+            }
+
+            .area-dropdown {
+                font-size: 0.8rem;
+                padding: 5px 8px;
+            }
+
+            .dropdown-container {
+                gap: 5px;
+            }
+
+            #sankey-chart {
+                height: 200px;
+            }
+
+            .comparison-grid {
+                gap: 8px;
+            }
+
+            .comparison-item {
+                padding: 10px;
+            }
+        }
     </style>
 </head>
 <body>
