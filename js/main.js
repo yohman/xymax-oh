@@ -1,3 +1,12 @@
+// Color palette matching compare mode
+const EARTH_COLORS = {
+    area1: '#8b5cf6',  // Modern purple - sophisticated and vibrant
+    area2: '#06b6d4',  // Cyan blue - clean and contemporary
+    office: '#9ca3af', // Medium gray
+    housing: '#6b7280', // Dark gray  
+    other: '#4b5563'   // Darker gray
+};
+
 // Load data when page loads
 loadTokyoData();
 document.addEventListener('DOMContentLoaded', () => {
@@ -335,21 +344,33 @@ window.onSliderYearChange = function(startYear, endYear) {
 
 		// Add a formal note if the direction of change in square meters differs from the direction of change in percentage
 		let extraNote = '';
-		// Office: increase in m2 but decrease in %
-		if (officeDiff > 0 && officePctEnd < officePctStart) {
-			extraNote += `<div style='font-size:0.95em;color:#fff;margin-bottom:4px;'>While the total office space has <b style='color:#00e676;'>increased</b>, its proportion relative to the total has <b style='color:#e53935;'>decreased</b>.</div>`;
-		}
-		// Office: decrease in m2 but increase in %
-		if (officeDiff < 0 && officePctEnd > officePctStart) {
-			extraNote += `<div style='font-size:0.95em;color:#fff;margin-bottom:4px;'>Although the total office space has <b style='color:#e53935;'>decreased</b>, its proportion relative to the total has <b style='color:#00e676;'>increased</b>.</div>`;
-		}
-		// Housing: increase in m2 but decrease in %
-		if (housingDiff > 0 && housingPctEnd < housingPctStart) {
-			extraNote += `<div style='font-size:0.95em;color:#fff;margin-bottom:4px;'>While the total housing space has <b style='color:#00e676;'>increased</b>, its proportion relative to the total has <b style='color:#e53935;'>decreased</b>.</div>`;
-		}
-		// Housing: decrease in m2 but increase in %
-		if (housingDiff < 0 && housingPctEnd > housingPctStart) {
-			extraNote += `<div style='font-size:0.95em;color:#fff;margin-bottom:4px;'>Although the total housing space has <b style='color:#e53935;'>decreased</b>, its proportion relative to the total has <b style='color:#00e676;'>increased</b>.</div>`;
+		// Combined logic for both office and housing
+		const bothIncreaseM2 = officeDiff > 0 && housingDiff > 0;
+		const bothDecreasePct = officePctEnd < officePctStart && housingPctEnd < housingPctStart;
+		const bothDecreaseM2 = officeDiff < 0 && housingDiff < 0;
+		const bothIncreasePct = officePctEnd > officePctStart && housingPctEnd > housingPctStart;
+
+		if (bothIncreaseM2 && bothDecreasePct) {
+			extraNote += `<div style='font-size:0.95em;color:#fff;margin-bottom:4px;'>While both office and housing space have <b style='color:#00e676;'>increased</b>, their proportions relative to the total have <b style='color:#e53935;'>decreased</b>.</div>`;
+		} else if (bothDecreaseM2 && bothIncreasePct) {
+			extraNote += `<div style='font-size:0.95em;color:#fff;margin-bottom:4px;'>Although both office and housing space have <b style='color:#e53935;'>decreased</b>, their proportions relative to the total have <b style='color:#00e676;'>increased</b>.</div>`;
+		} else {
+			// Office: increase in m2 but decrease in %
+			if (officeDiff > 0 && officePctEnd < officePctStart) {
+				extraNote += `<div style='font-size:0.95em;color:#fff;margin-bottom:4px;'>While the total office space has <b style='color:#00e676;'>increased</b>, its proportion relative to the total has <b style='color:#e53935;'>decreased</b>.</div>`;
+			}
+			// Office: decrease in m2 but increase in %
+			if (officeDiff < 0 && officePctEnd > officePctStart) {
+				extraNote += `<div style='font-size:0.95em;color:#fff;margin-bottom:4px;'>Although the total office space has <b style='color:#e53935;'>decreased</b>, its proportion relative to the total has <b style='color:#00e676;'>increased</b>.</div>`;
+			}
+			// Housing: increase in m2 but decrease in %
+			if (housingDiff > 0 && housingPctEnd < housingPctStart) {
+				extraNote += `<div style='font-size:0.95em;color:#fff;margin-bottom:4px;'>While the total housing space has <b style='color:#00e676;'>increased</b>, its proportion relative to the total has <b style='color:#e53935;'>decreased</b>.</div>`;
+			}
+			// Housing: decrease in m2 but increase in %
+			if (housingDiff < 0 && housingPctEnd > housingPctStart) {
+				extraNote += `<div style='font-size:0.95em;color:#fff;margin-bottom:4px;'>Although the total housing space has <b style='color:#e53935;'>decreased</b>, its proportion relative to the total has <b style='color:#00e676;'>increased</b>.</div>`;
+			}
 		}
 		if (extraNote) {
 			summaryText += extraNote;
@@ -466,49 +487,48 @@ window.updateWaffleChartSingle = function(feature) {
 	const officeEndPct = totalEnd ? Math.round((officeEnd / totalEnd) * 100) : 0;
 	const housingEndPct = totalEnd ? Math.round((housingEnd / totalEnd) * 100) : 0;
 	const otherEndPct = 100 - officeEndPct - housingEndPct;
-	// Bar width (wider for better visibility)
-	const barWidth = 300;
-	const barHeight = 36; // doubled from 18px
+	// Bar dimensions for side-by-side sankey-style layout
+	const barWidth = 140;
+	const barHeight = 200;
+	
 	// Helper for bar segment with percentage label
-	function barSegment(width, color, pct) {
-	return `<div style="position:relative;display:flex;align-items:center;justify-content:center;background:${color};width:${width}px;height:${barHeight}px;margin-right:1px;">
-		<span style="position:absolute;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;font-size:0.7em;color:#fff;font-weight:bold;pointer-events:none;">${width > 24 ? pct + '%' : ''}</span>
-	</div>`;
+	function barSegment(height, color, pct, category) {
+		const minLabelHeight = 25;
+		return `<div style="position:relative;display:flex;align-items:center;justify-content:center;background:${color};width:${barWidth}px;height:${height}px;margin-bottom:2px;">
+			<span style="position:absolute;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;font-size:0.75em;color:#fff;font-weight:bold;pointer-events:none;text-align:center;line-height:1.2;">${height > minLabelHeight ? `${category}<br>${pct}%` : ''}</span>
+		</div>`;
 	}
-	// Legend row
-	const legend = `<div style="display:flex;justify-content:center;align-items:center;font-size:0.8em;margin-bottom:4px;gap:16px;">
-	<span><span style="display:inline-block;width:14px;height:14px;background:#1976d2;border-radius:3px;margin-right:4px;"></span>Office</span>
-	<span><span style="display:inline-block;width:14px;height:14px;background:#43a047;border-radius:3px;margin-right:4px;"></span>Housing</span>
-	<span><span style="display:inline-block;width:14px;height:14px;background:#fbc02d;border-radius:3px;margin-right:4px;"></span>Other</span>
+	
+	// Legend row with updated colors
+	const legend = `<div style="display:flex;justify-content:center;align-items:center;font-size:0.8em;margin-bottom:12px;gap:16px;">
+		<span><span style="display:inline-block;width:14px;height:14px;background:${EARTH_COLORS.office};border-radius:3px;margin-right:4px;"></span>Office</span>
+		<span><span style="display:inline-block;width:14px;height:14px;background:${EARTH_COLORS.housing};border-radius:3px;margin-right:4px;"></span>Housing</span>
+		<span><span style="display:inline-block;width:14px;height:14px;background:${EARTH_COLORS.other};border-radius:3px;margin-right:4px;"></span>Other</span>
 	</div>`;
-	// Value row helper
-	function valueRow(o, h, ot) {
-	return `<div style="display:flex;justify-content:center;align-items:center;font-size:0.8em;margin:2px 0 8px 0;">
-		<span style="color:#1976d2;font-weight:bold;">${Math.round(o).toLocaleString()} m²</span>
-		<span style="color:#888;margin:0 8px;">|</span>
-		<span style="color:#43a047;font-weight:bold;">${Math.round(h).toLocaleString()} m²</span>
-		<span style="color:#888;margin:0 8px;">|</span>
-		<span style="color:#fbc02d;font-weight:bold;">${Math.round(ot).toLocaleString()} m²</span>
-	</div>`;
+	
+	// Year labels and totals
+	function yearColumn(year, office, housing, other, officePct, housingPct, otherPct) {
+		const total = office + housing + other;
+		return `<div style="display:flex;flex-direction:column;align-items:center;margin:0 10px;">
+			<div style="font-size:0.9em;font-weight:bold;margin-bottom:8px;color:#fff;">${year}</div>
+			<div style="display:flex;flex-direction:column;align-items:center;width:${barWidth}px;height:${barHeight}px;">
+				${barSegment(Math.round(barHeight * officePct/100), EARTH_COLORS.office, officePct, 'Office')}
+				${barSegment(Math.round(barHeight * housingPct/100), EARTH_COLORS.housing, housingPct, 'Housing')}
+				${barSegment(Math.round(barHeight * otherPct/100), EARTH_COLORS.other, otherPct, 'Other')}
+			</div>
+			<div style="font-size:0.75em;margin-top:8px;text-align:center;color:#ccc;">
+				Total: ${total.toLocaleString()} m²
+			</div>
+		</div>`;
 	}
-	// Render two bar charts, one for each year, with value rows
+	
+	// Render side-by-side sankey-style bars
 	waffle.innerHTML = `
-	${legend}
-	<div style="display:flex;flex-direction:column;align-items:center;margin:10px 0;">
-		<div style="font-size:0.85em;margin-bottom:2px;">${startYear}</div>
-		<div style="display:flex;align-items:center;width:${barWidth}px;height:${barHeight}px;">
-		${barSegment(Math.round(barWidth * officeStartPct/100), '#1976d2', officeStartPct)}
-		${barSegment(Math.round(barWidth * housingStartPct/100), '#43a047', housingStartPct)}
-		${barSegment(Math.round(barWidth * otherStartPct/100), '#fbc02d', otherStartPct)}
+		${legend}
+		<div style="display:flex;justify-content:center;align-items:flex-start;margin:10px 0;">
+			${yearColumn(startYear, officeStart, housingStart, otherStart, officeStartPct, housingStartPct, otherStartPct)}
+			<div style="display:flex;align-items:center;margin:0 5px;color:#666;font-size:1.2em;margin-top:100px;">→</div>
+			${yearColumn(endYear, officeEnd, housingEnd, otherEnd, officeEndPct, housingEndPct, otherEndPct)}
 		</div>
-		${valueRow(officeStart, housingStart, otherStart)}
-		<div style="font-size:0.85em;margin-bottom:2px;">${endYear}</div>
-		<div style="display:flex;align-items:center;width:${barWidth}px;height:${barHeight}px;">
-		${barSegment(Math.round(barWidth * officeEndPct/100), '#1976d2', officeEndPct)}
-		${barSegment(Math.round(barWidth * housingEndPct/100), '#43a047', housingEndPct)}
-		${barSegment(Math.round(barWidth * otherEndPct/100), '#fbc02d', otherEndPct)}
-		</div>
-		${valueRow(officeEnd, housingEnd, otherEnd)}
-	</div>
 	`;
 };

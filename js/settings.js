@@ -68,6 +68,27 @@ xymax.basemaps = {
                 source: "esri-world-imagery"
             }
         ]
+    },
+    gsi: {
+        version: 8,
+        sources: {
+            'gsi-pale': {
+                type: 'raster',
+                tiles: [
+                    'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png'
+                ],
+                tileSize: 256,
+                attribution: '地理院タイル &copy; <a href="https://www.gsi.go.jp/">国土地理院</a>',
+                maxzoom: 18
+            }
+        },
+        layers: [
+            {
+                id: 'gsi-pale-layer',
+                type: 'raster',
+                source: 'gsi-pale'
+            }
+        ]
     }
 };
 

@@ -142,13 +142,81 @@ function toggleMapMode() {
 function initMap(geoJsonData) {
 	data = geoJsonData;
 	
+	const basemaps = {
+		satellite: {
+			version: 8,
+			sources: {
+				'esri-world-imagery': {
+					type: "raster",
+					tiles: [
+						"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+					],
+					tileSize: 256,
+					attribution: "Tiles &copy; <a href=\"https://www.esri.com/\">Esri</a>  Source: Esri, Earthstar Geographics",
+					maxzoom: 19
+				}
+			},
+			layers: [
+				{
+					id: "esri-world-imagery-layer",
+					type: "raster",
+					source: "esri-world-imagery"
+				}
+			]
+		},
+		gsi: {
+			version: 8,
+			sources: {
+				'gsi-pale': {
+					type: "raster",
+					tiles: [
+						"https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png"
+					],
+					tileSize: 256,
+					attribution: "地理院タイル &copy; <a href=\"https://www.gsi.go.jp/\">国土地理院</a>",
+					maxzoom: 18
+				}
+			},
+			layers: [
+				{
+					id: "gsi-pale-layer",
+					type: "raster",
+					source: "gsi-pale"
+				}
+			]
+		}
+	};
+
+	let currentBasemap = 'satellite';
 	map = new mapboxgl.Map({
 		container: 'map',
-		style: xymax.basemaps[xymax.defaults.defaultBasemap],
+		style: basemaps[currentBasemap],
 		center: [xymax.defaults.lon, xymax.defaults.lat],
 		zoom: xymax.defaults.zoom,
 		pitch: xymax.defaults.pitch,
 		projection: 'globe'
+	});
+
+	// Add basemap toggle UI if not present
+	if (!document.getElementById('basemap-select')) {
+		const header = document.querySelector('.map-header');
+		if (header) {
+			const toggleDiv = document.createElement('div');
+			toggleDiv.className = 'basemap-toggle';
+			toggleDiv.style.marginLeft = '20px';
+			toggleDiv.innerHTML = `
+				<label for="basemap-select" style="color:#fff;">地図:</label>
+				<select id="basemap-select" style="padding:4px 8px;">
+					<option value="satellite">衛星写真</option>
+					<option value="gsi">国土地理院</option>
+				</select>
+			`;
+			header.appendChild(toggleDiv);
+		}
+	}
+	document.getElementById('basemap-select').addEventListener('change', function(e) {
+		currentBasemap = e.target.value;
+		map.setStyle(basemaps[currentBasemap]);
 	});
 
 	map.on('load', () => {
