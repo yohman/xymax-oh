@@ -174,7 +174,7 @@
             padding: 20px;
             background: #2a2a2a;
             border: 1px solid #444;
-            border-radius: 8px;
+            border-radius: 0;
         }
         
         .summary-title {
@@ -328,9 +328,9 @@
             <div class="data-content">
                 <!-- Discovery Instructions -->
                 <div class="discovery-instructions">
-                    <h2 style="color: #fff; font-size: 1.5rem; margin-bottom: 15px;">グリッド探索</h2>
+                    <h2 style="color: #fff; font-size: 1.5rem; margin-bottom: 15px;">Glide 検索</h2>
                     <p style="color: #ccc; line-height: 1.6; margin-bottom: 20px;">
-                        地図上のグリッドにマウスを重ねると、東京の土地利用の変化（1996〜2023年）を確認できます。
+                        地図上のグリッドにマウスを重ねると、この場所の土地利用の変化（1996〜2023年）を確認できます。
                     </p>
                     <div id="current-grid-info" style="color: #8b5cf6; font-size: 0.9rem; min-height: 20px;">
                         <!-- Current hover information will appear here -->
@@ -342,11 +342,11 @@
                     <div class="chart-toggle">
                         <label class="toggle-label">
                             <input type="radio" name="view-mode" value="absolute" checked>
-                            Actual Numbers
+                            実数
                         </label>
                         <label class="toggle-label">
                             <input type="radio" name="view-mode" value="percent">
-                            Percentage
+                            割合
                         </label>
                     </div>
                     <div class="sankey-container" id="sankey-container"></div>
@@ -357,15 +357,15 @@
                 
                 <!-- Summary -->
                 <div class="summary-section" id="summary-section" style="display: none;">
-                    <h3 class="summary-title">Area Summary</h3>
+                    <h3 class="summary-title">グリッド要約</h3>
                     <div class="summary-stats">
                         <div class="stat-item">
                             <div class="stat-value" id="population-value">-</div>
-                            <div class="stat-label">Population</div>
+                            <div class="stat-label">人口</div>
                         </div>
                         <div class="stat-item">
                             <div class="stat-value" id="households-value">-</div>
-                            <div class="stat-label">Households</div>
+                            <div class="stat-label">世帯数</div>
                         </div>
                     </div>
                     <div id="summary-text"></div>
@@ -704,6 +704,7 @@
                     // Update the visualization
                     updateSankeyDiagram();
                     updateSingleSummary(gridFeatures);
+                    updateSummary(gridFeatures);
                     
                     // Update grid info display
                     updateGridInfo(feature);
@@ -1317,7 +1318,7 @@
         // Clear sankey diagram
         function clearSankey() {
             const container = document.getElementById('sankey-container');
-            container.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #ccc;">Hover over a grid cell to view land use changes</div>';
+            container.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #ccc;">グリッドセルにマウスを重ねると土地利用の変化が表示されます</div>';
             
             // Remove any existing tooltips
             d3.selectAll('.sankey-tooltip').remove();
@@ -1377,30 +1378,30 @@
             const officePercent = office1996 > 0 ? ((officeChange / office1996) * 100) : 0;
             const housingPercent = housing1996 > 0 ? ((housingChange / housing1996) * 100) : 0;
 
-            // Generate summary text
-            let summaryText = `Over the past 27 years in ${currentAreaName}, `;
+            // Generate summary text with HTML formatting
+            let summaryHTML = `この場所では過去27年間で、`;
             
             if (Math.abs(officePercent) > 1) {
                 if (officeChange > 0) {
-                    summaryText += `office spaces have expanded by ${Math.abs(officePercent).toFixed(1)}% (${Math.abs(officeChange).toLocaleString()} m²), `;
+                    summaryHTML += `オフィススペースが<strong style="color: #22c55e;">${Math.abs(officePercent).toFixed(1)}%増加</strong>し（${Math.abs(officeChange).toLocaleString()} m²）、`;
                 } else {
-                    summaryText += `office spaces have contracted by ${Math.abs(officePercent).toFixed(1)}% (${Math.abs(officeChange).toLocaleString()} m²), `;
+                    summaryHTML += `オフィススペースが<strong style="color: #ef4444;">${Math.abs(officePercent).toFixed(1)}%減少</strong>し（${Math.abs(officeChange).toLocaleString()} m²）、`;
                 }
             } else {
-                summaryText += `office spaces have remained relatively stable, `;
+                summaryHTML += `オフィススペースはほぼ安定しており、`;
             }
 
             if (Math.abs(housingPercent) > 1) {
                 if (housingChange > 0) {
-                    summaryText += `while housing has grown by ${Math.abs(housingPercent).toFixed(1)}% (${Math.abs(housingChange).toLocaleString()} m²).`;
+                    summaryHTML += `住宅は<strong style="color: #22c55e;">${Math.abs(housingPercent).toFixed(1)}%増加</strong>しました（${Math.abs(housingChange).toLocaleString()} m²）。`;
                 } else {
-                    summaryText += `while housing has decreased by ${Math.abs(housingPercent).toFixed(1)}% (${Math.abs(housingChange).toLocaleString()} m²).`;
+                    summaryHTML += `住宅は<strong style="color: #ef4444;">${Math.abs(housingPercent).toFixed(1)}%減少</strong>しました（${Math.abs(housingChange).toLocaleString()} m²）。`;
                 }
             } else {
-                summaryText += `while housing has remained relatively stable.`;
+                summaryHTML += `住宅もほぼ安定しています。`;
             }
 
-            summaryEl.textContent = summaryText;
+            summaryEl.innerHTML = summaryHTML;
             summaryEl.style.display = 'block';
         }
     </script>

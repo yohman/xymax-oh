@@ -80,11 +80,11 @@
 
         .mode-box {
             flex: 0 0 340px;
-            background: rgba(26,26,26,0.85);
-            border: 2px solid #333;
+            background: rgba(0, 0, 0, 0.7);
+            border: none;
             border-radius: 0;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-            padding: 1.2rem 1.2rem 1.2rem 1.2rem;
+            padding: 2rem 1.2rem 1.2rem 1.2rem;
             width: 340px;
             min-width: 340px;
             max-width: 340px;
@@ -92,32 +92,36 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             transition: box-shadow 0.2s;
             cursor: pointer;
             box-sizing: border-box;
         }
 
         .mode-title {
-            font-size: 1.5rem;
-            font-weight: 600;
+            font-family: 'Noto Serif JP', serif;
+            font-size: 1.8rem;
+            font-weight: 400;
+            margin-top: 0;
             margin-bottom: 0.8rem;
-            color: #fff;
+            color: #f5f5f5;
             text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
             width: 100%;
             text-align: center;
+            letter-spacing: 0.05em;
         }
 
         .mode-description {
             font-size: 1rem;
             margin-bottom: 1.2rem;
-            color: rgba(255, 255, 255, 0.8);
+            color: rgba(255, 255, 255, 0.7);
             line-height: 1.4;
             width: 100%;
             text-align: center;
         }
 
         .mode-controls {
+            margin-top: auto;
             margin-bottom: 0;
             width: 100%;
             display: flex;
@@ -218,8 +222,8 @@
         <div class="mode-options">
             <!-- Discovery Mode -->
             <div class="mode-box" id="discovery-mode">
-                <h2 class="mode-title">発見</h2>
-                <p class="mode-description">グリッドをホバーして土地利用を見る</p>
+                <h2 class="mode-title">Glide</h2>
+                <p class="mode-description">グライド検索</p>
                 <div class="mode-controls">
                     <button class="start-discovery-btn" onclick="window.location.href='discovery.html'">
                         開始
@@ -229,8 +233,8 @@
 
             <!-- Single Location Mode -->
             <div class="mode-box" id="single-mode">
-                <h2 class="mode-title">単一</h2>
-                <p class="mode-description">エリアを選択して変化を見る</p>
+                <h2 class="mode-title">Spotlight</h2>
+                <p class="mode-description">一つのエリアにフォーカス</p>
                 <div class="mode-controls">
                     <select id="single-area-dropdown" class="area-dropdown">
                         <option value="">エリア選択</option>
@@ -241,8 +245,8 @@
 
             <!-- Compare Mode -->
             <div class="mode-box" id="compare-mode">
-                <h2 class="mode-title">比較</h2>
-                <p class="mode-description">２つのエリアを比較</p>
+                <h2 class="mode-title">Mirror</h2>
+                <p class="mode-description">２つのエリアを並べて比較</p>
                 <div class="mode-controls">
                     <select id="compare-area1-dropdown" class="area-dropdown">
                         <option value="">エリア１</option>
