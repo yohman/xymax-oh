@@ -467,7 +467,25 @@
 
             document.getElementById('basemap-select').addEventListener('change', function(e) {
                 currentBasemap = e.target.value;
+                
+                // Save current camera position
+                const center = map.getCenter();
+                const zoom = map.getZoom();
+                const bearing = map.getBearing();
+                const pitch = map.getPitch();
+                
+                // Set new style
                 map.setStyle(basemaps[currentBasemap]);
+                
+                // Restore camera position after style loads
+                map.once('style.load', () => {
+                    map.jumpTo({
+                        center: center,
+                        zoom: zoom,
+                        bearing: bearing,
+                        pitch: pitch
+                    });
+                });
             });
 
             // Re-add geojson source and layers after style change
@@ -479,7 +497,8 @@
                         const tokyoData = await response.json();
                         map.addSource('tokyo-data', {
                             type: 'geojson',
-                            data: tokyoData
+                            data: tokyoData,
+                            generateId: true
                         });
                         // Add base grid layer
                         map.addLayer({
@@ -487,20 +506,62 @@
                             type: 'fill',
                             source: 'tokyo-data',
                             paint: {
-                                'fill-color': '#888888',
-                                'fill-opacity': 0.3
+                                'fill-color': '#000000',
+                                'fill-opacity': [
+                                    'case',
+                                    ['boolean', ['feature-state', 'hover'], false], 0,
+                                    ['boolean', ['feature-state', 'selected'], false], 0,
+                                    0.5
+                                ]
                             }
                         });
-                        // Add hover highlight layer
+                        // Add grid borders
                         map.addLayer({
-                            id: 'tokyo-layer-hover',
-                            type: 'fill',
+                            id: 'tokyo-layer-outline',
+                            type: 'line',
                             source: 'tokyo-data',
                             paint: {
-                                'fill-color': '#8b5cf6',
-                                'fill-opacity': 0.8
-                            },
-                            filter: ['==', 'KEY_CODE', '']
+                                'line-color': '#666666',
+                                'line-width': 0.5,
+                                'line-opacity': 0.5
+                            }
+                        });
+                        // Add selected outline
+                        map.addLayer({
+                            id: 'tokyo-layer-selected-outline',
+                            type: 'line',
+                            source: 'tokyo-data',
+                            paint: {
+                                'line-color': '#8b5cf6',
+                                'line-width': 2,
+                                'line-opacity': [
+                                    'case',
+                                    ['boolean', ['feature-state', 'selected'], false], 1,
+                                    0
+                                ]
+                            }
+                        });
+                        
+                        // Restore hover state if exists
+                        if (currentHoveredFeatureId !== null && !isSticky) {
+                            map.setFeatureState({
+                                source: 'tokyo-data',
+                                id: currentHoveredFeatureId
+                            }, {
+                                hover: true
+                            });
+                        }
+                        
+                        // Restore selected states
+                        selectedGrids.forEach((feature) => {
+                            if (feature.id !== undefined) {
+                                map.setFeatureState({
+                                    source: 'tokyo-data',
+                                    id: feature.id
+                                }, {
+                                    selected: true
+                                });
+                            }
                         });
                     } catch (error) {
                         console.error('Error re-adding layers after basemap change:', error);
@@ -521,30 +582,54 @@
                     
                     map.addSource('tokyo-data', {
                         type: 'geojson',
-                        data: tokyoData
+                        data: tokyoData,
+                        generateId: true
                     });
                     
-                    // Add base grid layer (always visible, subtle gray)
+                    // Add base grid layer (dark overlay by default, except hovered/selected)
                     map.addLayer({
                         id: 'tokyo-layer',
                         type: 'fill',
                         source: 'tokyo-data',
                         paint: {
-                            'fill-color': '#888888',
-                            'fill-opacity': 0.3
+                            'fill-color': '#000000',
+                            'fill-opacity': [
+                                'case',
+                                ['boolean', ['feature-state', 'hover'], false], 0,
+                                ['boolean', ['feature-state', 'selected'], false], 0,
+                                0.5
+                            ]
+                        }
+                    });
+                    
+                    // Add grid borders for visibility
+                    map.addLayer({
+                        id: 'tokyo-layer-outline',
+                        type: 'line',
+                        source: 'tokyo-data',
+                        paint: {
+                            'line-color': '#666666',
+                            'line-width': 0.5,
+                            'line-opacity': 0.5
                         }
                     });
 
-                    // Add hover highlight layer (only for hovered grid)
+                    // Remove the separate hover layer - not needed anymore
+                    
+                    // Add outline for selected grids
                     map.addLayer({
-                        id: 'tokyo-layer-hover',
-                        type: 'fill',
+                        id: 'tokyo-layer-selected-outline',
+                        type: 'line',
                         source: 'tokyo-data',
                         paint: {
-                            'fill-color': '#8b5cf6',
-                            'fill-opacity': 0.8
-                        },
-                        filter: ['==', 'KEY_CODE', '']
+                            'line-color': '#8b5cf6',
+                            'line-width': 2,
+                            'line-opacity': [
+                                'case',
+                                ['boolean', ['feature-state', 'selected'], false], 1,
+                                0
+                            ]
+                        }
                     });
                     
                     console.log('Map initialized successfully with', tokyoData.features.length, 'features');
@@ -647,6 +732,9 @@
         
         let currentHoveredGrid = null;
         let currentHoveredKeyCode = null;
+        let currentHoveredFeatureId = null;
+        let selectedGrids = new Map(); // Store clicked/selected grids
+        let isSticky = false; // Track if we're in sticky mode
         
         // Setup hover interactions for grid discovery
         function setupHoverInteractions() {
@@ -657,25 +745,180 @@
                 if (e.features.length > 0) {
                     const feature = e.features[0];
                     const keyCode = feature.properties.KEY_CODE;
-                    // Only update if we're hovering over a different grid
-                    if (keyCode !== currentHoveredKeyCode) {
-                        currentHoveredKeyCode = keyCode;
-                        handleGridHover(feature);
+                    const featureId = feature.id;
+                    
+                    // Skip hover effects if in sticky mode
+                    if (!isSticky) {
+                        // Only update if we're hovering over a different grid
+                        if (featureId !== currentHoveredFeatureId) {
+                            // Remove previous hover state only if different
+                            if (currentHoveredFeatureId !== null) {
+                                map.setFeatureState({
+                                    source: 'tokyo-data',
+                                    id: currentHoveredFeatureId
+                                }, {
+                                    hover: false
+                                });
+                            }
+                            
+                            // Set new hover state
+                            currentHoveredKeyCode = keyCode;
+                            currentHoveredFeatureId = featureId;
+                            
+                            map.setFeatureState({
+                                source: 'tokyo-data',
+                                id: featureId
+                            }, {
+                                hover: true
+                            });
+                            
+                            handleGridHover(feature);
+                        }
                     }
+                    
                     // Set pointer cursor
                     map.getCanvas().style.cursor = 'pointer';
                 } else {
                     // If not hovering any feature, reset
-                    if (currentHoveredKeyCode !== null) {
+                    if (currentHoveredFeatureId !== null && !isSticky) {
+                        map.setFeatureState({
+                            source: 'tokyo-data',
+                            id: currentHoveredFeatureId
+                        }, {
+                            hover: false
+                        });
+                        currentHoveredFeatureId = null;
                         currentHoveredKeyCode = null;
                         currentHoveredGrid = null;
-                        showAllGrids();
                         clearSankey();
                         updateGridInfo(null);
+                        hideSummary();
                     }
                     map.getCanvas().style.cursor = '';
                 }
             });
+            
+            // Click event - stick/unstick grid selection
+            map.on('click', 'tokyo-layer', async (e) => {
+                if (e.features.length > 0) {
+                    const feature = e.features[0];
+                    const keyCode = feature.properties.KEY_CODE;
+                    const featureId = feature.id;
+                    
+                    // Toggle selection
+                    if (selectedGrids.has(keyCode)) {
+                        // Unstick this grid - remove feature state
+                        map.setFeatureState({
+                            source: 'tokyo-data',
+                            id: featureId
+                        }, {
+                            selected: false
+                        });
+                        selectedGrids.delete(keyCode);
+                    } else {
+                        // Add this grid to selection - set feature state
+                        map.setFeatureState({
+                            source: 'tokyo-data',
+                            id: featureId
+                        }, {
+                            selected: true
+                        });
+                        selectedGrids.set(keyCode, feature);
+                    }
+                    
+                    // Clear hover state when entering sticky mode
+                    if (currentHoveredFeatureId !== null) {
+                        map.setFeatureState({
+                            source: 'tokyo-data',
+                            id: currentHoveredFeatureId
+                        }, {
+                            hover: false
+                        });
+                        currentHoveredFeatureId = null;
+                    }
+                    
+                    // Update sticky mode
+                    isSticky = selectedGrids.size > 0;
+                    
+                    // Update visualization
+                    await handleGridSelection();
+                }
+            });
+            
+            // Click outside grids to clear all selections
+            map.on('click', (e) => {
+                const features = map.queryRenderedFeatures(e.point, { layers: ['tokyo-layer'] });
+                if (features.length === 0 && isSticky) {
+                    // Clear all selected feature states
+                    selectedGrids.forEach((feature) => {
+                        if (feature.id) {
+                            map.setFeatureState({
+                                source: 'tokyo-data',
+                                id: feature.id
+                            }, {
+                                selected: false
+                            });
+                        }
+                    });
+                    // Clicked outside grids - clear all selections
+                    selectedGrids.clear();
+                    isSticky = false;
+                    currentHoveredKeyCode = null;
+                    currentHoveredGrid = null;
+                    showAllGrids();
+                    clearSankey();
+                    updateGridInfo(null);
+                    hideSummary();
+                }
+            });
+        }
+        
+        // Handle grid selection (click to stick)
+        async function handleGridSelection() {
+            try {
+                // No need to update filters anymore - feature-state handles the visual updates
+                const selectedKeyCodes = Array.from(selectedGrids.keys());
+                
+                // Load data for all selected grids
+                const response = await fetch('data/tokyo_slim_pop.geojson');
+                const data = await response.json();
+                
+                // Combine features from all selected grids
+                const allSelectedFeatures = [];
+                selectedKeyCodes.forEach(keyCode => {
+                    const gridFeatures = data.features.filter(f => 
+                        f.properties && f.properties.KEY_CODE === keyCode
+                    );
+                    allSelectedFeatures.push(...gridFeatures);
+                });
+                
+                if (allSelectedFeatures.length > 0) {
+                    currentHoveredGrid = allSelectedFeatures;
+                    
+                    // Update visualizations with combined data
+                    updateSankeyDiagram();
+                    updateSingleSummary(allSelectedFeatures);
+                    updateSummary(allSelectedFeatures);
+                    
+                    // Update grid info display
+                    const gridInfoEl = document.getElementById('current-grid-info');
+                    if (gridInfoEl) {
+                        if (selectedKeyCodes.length === 1) {
+                            gridInfoEl.innerHTML = `<strong>選択中:</strong> Grid ${selectedKeyCodes[0]}`;
+                        } else {
+                            gridInfoEl.innerHTML = `<strong>選択中:</strong> ${selectedKeyCodes.length} グリッド`;
+                        }
+                    }
+                    
+                    // Show summary section
+                    document.getElementById('summary-section').style.display = 'block';
+                } else {
+                    clearSankey();
+                    hideSummary();
+                }
+            } catch (error) {
+                console.error('Error handling grid selection:', error);
+            }
         }
         
         // Handle grid hover - highlight specific grid and show its data
@@ -683,11 +926,8 @@
             console.log('Grid hovered:', feature.properties.KEY_CODE);
             
             try {
-                // Highlight the specific grid (only on hover layer)
+                // Feature state already set in setupHoverInteractions
                 const keyCode = feature.properties.KEY_CODE;
-                if (map.getLayer('tokyo-layer-hover')) {
-                    map.setFilter('tokyo-layer-hover', ['==', 'KEY_CODE', keyCode]);
-                }
                 
                 // Load data for this specific grid
                 const response = await fetch('data/tokyo_slim_pop.geojson');
