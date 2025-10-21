@@ -71,6 +71,11 @@ function setupDropdownListeners() {
             updateNavigationLinks(area1Name, area2Name);
             if (area1Name && area2Name) {
                 await loadAndCompareAreas();
+                // Update URL parameters
+                const url = new URL(window.location);
+                url.searchParams.set('area1', area1Name);
+                url.searchParams.set('area2', area2Name);
+                window.history.pushState({}, '', url);
             }
         });
     }
@@ -80,6 +85,11 @@ function setupDropdownListeners() {
             updateNavigationLinks(area1Name, area2Name);
             if (area1Name && area2Name) {
                 await loadAndCompareAreas();
+                // Update URL parameters
+                const url = new URL(window.location);
+                url.searchParams.set('area1', area1Name);
+                url.searchParams.set('area2', area2Name);
+                window.history.pushState({}, '', url);
             }
         });
     }
@@ -443,15 +453,19 @@ function getAreaData(meshes, tokyoData) {
     
     let population = 0, households = 0, foreign = 0;
     let office2023 = 0, housing2023 = 0, other2023 = 0;
+    let age_0_14 = 0, age_15_64 = 0, age_65_plus = 0;
     
     relevantFeatures.forEach(f => {
         const props = f.properties;
         population += Number(props.population) || 0;
         households += Number(props.households) || 0;
-        foreign += Number(props.pop_foreign) || 0; // Updated property name
+        foreign += Number(props.pop_foreign) || 0;
         office2023 += Number(props['2023_office_total_use_area']) || 0;
         housing2023 += Number(props['2023_housing_total_use_area']) || 0;
         other2023 += Number(props['2023_other_total_use_area']) || 0;
+        age_0_14 += Number(props.pop_0_14) || 0;
+        age_15_64 += Number(props.pop_15_64) || 0;
+        age_65_plus += Number(props.pop_65_plus) || 0;
     });
     
     const result = {
@@ -461,6 +475,9 @@ function getAreaData(meshes, tokyoData) {
         office: Math.round(office2023),
         housing: Math.round(housing2023),
         other: Math.round(other2023),
+        age_0_14: Math.round(age_0_14),
+        age_15_64: Math.round(age_15_64),
+        age_65_plus: Math.round(age_65_plus),
         meshCount: meshes.length
     };
     
@@ -607,14 +624,8 @@ function calculateMeshCentroid(meshes) {
 function updateComparisonUI() {
     if (!area1Data || !area2Data) return;
     
-    // Population comparison
-    document.getElementById('area1-population').textContent = area1Data.population.toLocaleString();
-    document.getElementById('area2-population').textContent = area2Data.population.toLocaleString();
-    
-    const popDiff = area1Data.population - area2Data.population;
-    const popDiffEl = document.getElementById('population-diff');
-    popDiffEl.textContent = `${popDiff > 0 ? '+' : ''}${popDiff.toLocaleString()}`;
-    popDiffEl.className = 'comparison-difference ' + (popDiff > 0 ? 'difference-positive' : 'difference-negative');
+    // Draw age comparison sankey
+    drawAgeComparisonSankey();
     
     // Office space comparison
     document.getElementById('area1-office').textContent = `${area1Data.office.toLocaleString()} m²`;
@@ -651,138 +662,75 @@ function updateComparisonUI() {
     generateSummaryStatement();
 }
 
-// Update sankey diagram with curved connections between areas
-function updateSankeyDiagram() {
-    if (!area1Data || !area2Data) return;
-    
-    const chartMode = document.querySelector('input[name="chart-mode"]:checked').value;
-    const container = d3.select('#sankey-chart');
-    
-    // Clear previous diagram
+// Unified function to draw comparison sankey (2 columns for area comparison)
+function drawComparisonSankey(containerId, config) {
+    // config: { area1Data, area2Data, colors, area1Label, area2Label, categoryLabels, showValues, maxValue }
+    const container = d3.select(containerId);
     container.selectAll('*').remove();
     
-    // Calculate totals for each area
-    const area1Total = area1Data.office + area1Data.housing + area1Data.other;
-    const area2Total = area2Data.office + area2Data.housing + area2Data.other;
-    
-    // Setup dimensions - adjusted for 50% width layout
     const containerWidth = container.node().getBoundingClientRect().width;
-    const width = Math.min(containerWidth - 40, 500); // Max 500px, with some padding
+    const width = Math.min(containerWidth - 40, 500);
     const height = 280;
-    const margin = { top: 20, right: 100, bottom: 20, left: 100 }; // Adequate space for external labels
+    const margin = { top: 20, right: 100, bottom: 20, left: 100 };
     const chartWidth = width - margin.left - margin.right;
     const chartHeight = height - margin.top - margin.bottom;
     
-    // Create SVG
     const svg = container.append('svg')
         .attr('width', width)
         .attr('height', height)
         .style('display', 'block')
-        .style('margin', '0 auto'); // Center the SVG
+        .style('margin', '0 auto');
     
     const g = svg.append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);
     
-    // Calculate node positions and sizes
+    // Unified dimensions
     const nodeWidth = 80;
-    const nodeSpacing = chartWidth - 2 * nodeWidth;
-    const nodeGap = 3; // Gap between node segments
+    const nodeGap = 5;
     
-    // Prepare data based on mode
-    let area1Values, area2Values, maxValue;
-    
-    if (chartMode === 'percentage') {
-        // In percentage mode, all values are proportional to their own totals
-        area1Values = {
-            office: area1Data.office / area1Total,
-            housing: area1Data.housing / area1Total,
-            other: area1Data.other / area1Total
-        };
-        area2Values = {
-            office: area2Data.office / area2Total,
-            housing: area2Data.housing / area2Total,
-            other: area2Data.other / area2Total
-        };
-        maxValue = 1; // Since we're dealing with proportions
-    } else {
-        // In actual mode, values are absolute
-        area1Values = {
-            office: area1Data.office,
-            housing: area1Data.housing,
-            other: area1Data.other
-        };
-        area2Values = {
-            office: area2Data.office,
-            housing: area2Data.housing,
-            other: area2Data.other
-        };
-        maxValue = Math.max(area1Total, area2Total);
-    }
-    
-    // Scale for node heights
+    // Height scale
     const heightScale = d3.scaleLinear()
-        .domain([0, maxValue])
+        .domain([0, config.maxValue])
         .range([0, chartHeight * 0.8]);
     
-    // Colors for categories - ocean theme color scheme
-    const colors = {
-        office: EARTH_COLORS.office,    // Dark Ocean Blue - deep navy
-        housing: EARTH_COLORS.housing,  // Sandy Brown - warm sand
-        other: EARTH_COLORS.other       // Slate Gray - ocean complement
-    };
-    
-    // Create nodes for left side (area1)
-    const leftNodes = [
-        { category: 'office', value: area1Values.office, y: 0 },
-        { category: 'housing', value: area1Values.housing, y: 0 },
-        { category: 'other', value: area1Values.other, y: 0 }
-    ];
-    
-    // Create nodes for right side (area2)
-    const rightNodes = [
-        { category: 'office', value: area2Values.office, y: 0 },
-        { category: 'housing', value: area2Values.housing, y: 0 },
-        { category: 'other', value: area2Values.other, y: 0 }
-    ];
-    
     // Calculate y positions for stacked layout with gaps
-    const totalLeftHeight = leftNodes.reduce((sum, node) => sum + heightScale(node.value), 0) + (leftNodes.length - 1) * nodeGap;
-    const totalRightHeight = rightNodes.reduce((sum, node) => sum + heightScale(node.value), 0) + (rightNodes.length - 1) * nodeGap;
+    const totalLeftHeight = config.area1Data.reduce((sum, node) => sum + heightScale(node.value), 0) + (config.area1Data.length - 1) * nodeGap;
+    const totalRightHeight = config.area2Data.reduce((sum, node) => sum + heightScale(node.value), 0) + (config.area2Data.length - 1) * nodeGap;
     
     let leftY = (chartHeight - totalLeftHeight) / 2;
     let rightY = (chartHeight - totalRightHeight) / 2;
     
-    // Position left nodes (stacked with gaps)
-    leftNodes.forEach(node => {
-        node.y = leftY;
-        leftY += heightScale(node.value) + nodeGap;
+    // Position nodes
+    let currentLeftY = leftY;
+    let currentRightY = rightY;
+    
+    const leftPositions = [];
+    const rightPositions = [];
+    
+    config.area1Data.forEach((node, i) => {
+        const nodeHeight = Math.max(2, heightScale(node.value));
+        leftPositions.push({ ...node, y: currentLeftY, height: nodeHeight });
+        currentLeftY += nodeHeight + nodeGap;
     });
     
-    // Position right nodes (stacked with gaps)
-    rightNodes.forEach(node => {
-        node.y = rightY;
-        rightY += heightScale(node.value) + nodeGap;
+    config.area2Data.forEach((node, i) => {
+        const nodeHeight = Math.max(2, heightScale(node.value));
+        rightPositions.push({ ...node, y: currentRightY, height: nodeHeight });
+        currentRightY += nodeHeight + nodeGap;
     });
     
-    // Create curved path generator
-    const linkPath = d3.linkHorizontal()
-        .x(d => d.x)
-        .y(d => d.y);
-    
-    // Draw connections (sankey flows)
-    leftNodes.forEach((leftNode, i) => {
-        const rightNode = rightNodes[i]; // Same category
+    // Draw connections
+    leftPositions.forEach((leftNode, i) => {
+        const rightNode = rightPositions[i];
         
         const linkData = {
-            source: { x: nodeWidth, y: leftNode.y + heightScale(leftNode.value) / 2 },
-            target: { x: chartWidth - nodeWidth, y: rightNode.y + heightScale(rightNode.value) / 2 }
+            source: { x: nodeWidth, y: leftNode.y + leftNode.height / 2 },
+            target: { x: chartWidth - nodeWidth, y: rightNode.y + rightNode.height / 2 }
         };
         
-        // Calculate flow thickness based on minimum value
         const minValue = Math.min(leftNode.value, rightNode.value);
         const flowThickness = Math.max(2, heightScale(minValue) * 0.8);
         
-        // Create gradient for the flow
         const gradientId = `gradient-${leftNode.category}`;
         const gradient = g.append('defs').append('linearGradient')
             .attr('id', gradientId)
@@ -792,138 +740,168 @@ function updateSankeyDiagram() {
         
         gradient.append('stop')
             .attr('offset', '0%')
-            .attr('stop-color', colors[leftNode.category])
+            .attr('stop-color', config.colors[leftNode.category])
             .attr('stop-opacity', 0.7);
             
         gradient.append('stop')
             .attr('offset', '100%')
-            .attr('stop-color', colors[rightNode.category])
+            .attr('stop-color', config.colors[rightNode.category])
             .attr('stop-opacity', 0.7);
         
-        // Draw the curved flow
+        const linkPath = d3.linkHorizontal()
+            .x(d => d.x)
+            .y(d => d.y);
+        
         g.append('path')
             .attr('d', linkPath(linkData))
             .attr('stroke', `url(#${gradientId})`)
             .attr('stroke-width', flowThickness)
             .attr('fill', 'none')
-            .attr('opacity', 0.6)
-            .style('cursor', 'pointer')
-            .on('mouseover', function() {
-                d3.select(this).attr('opacity', 0.9);
-            })
-            .on('mouseout', function() {
-                d3.select(this).attr('opacity', 0.6);
-            });
+            .attr('opacity', 0.6);
     });
     
-    // Draw left nodes (area1)
-    const leftNodeGroups = g.selectAll('.left-node')
-        .data(leftNodes)
-        .enter().append('g')
-        .attr('class', 'left-node');
-    
-    leftNodeGroups.append('rect')
-        .attr('x', 0)
-        .attr('y', d => d.y)
-        .attr('width', nodeWidth)
-        .attr('height', d => Math.max(2, heightScale(d.value)))
-        .attr('fill', d => colors[d.category])
-        .attr('rx', 0); // No rounded corners
-    
-    // Add value labels on left nodes
-    leftNodeGroups.append('text')
-        .attr('class', 'sankey-value-text')
-        .attr('x', nodeWidth / 2)
-        .attr('y', d => d.y + heightScale(d.value) / 2)
-        .text(d => {
-            if (chartMode === 'percentage') {
-                return `${Math.round(d.value * 100)}%`;
-            } else {
-                return `${Math.round(d.value).toLocaleString()}`;
-            }
-        })
-        .style('display', d => heightScale(d.value) > 15 ? 'block' : 'none');
-    
-    // Draw right nodes (area2)
-    const rightNodeGroups = g.selectAll('.right-node')
-        .data(rightNodes)
-        .enter().append('g')
-        .attr('class', 'right-node');
-    
-    rightNodeGroups.append('rect')
-        .attr('x', chartWidth - nodeWidth)
-        .attr('y', d => d.y)
-        .attr('width', nodeWidth)
-        .attr('height', d => Math.max(2, heightScale(d.value)))
-        .attr('fill', d => colors[d.category])
-        .attr('rx', 0); // No rounded corners
-    
-    // Add value labels on right nodes
-    rightNodeGroups.append('text')
-        .attr('class', 'sankey-value-text')
-        .attr('x', chartWidth - nodeWidth / 2)
-        .attr('y', d => d.y + heightScale(d.value) / 2)
-        .text(d => {
-            if (chartMode === 'percentage') {
-                return `${Math.round(d.value * 100)}%`;
-            } else {
-                return `${Math.round(d.value).toLocaleString()}`;
-            }
-        })
-        .style('display', d => heightScale(d.value) > 15 ? 'block' : 'none');
-    
-    // Add area labels with colored text circles (simple and clean)
-    // Area 1 label with colored circle
-    const area1Label = g.append('text')
-        .attr('class', 'sankey-node-text')
-        .attr('x', nodeWidth / 2)
-        .attr('y', -7)
-        .attr('fill', '#333')
-        .attr('text-anchor', 'middle')
-        .style('font-weight', '500')
-        .style('font-size', '12px')
-        .html(`<tspan fill="${EARTH_COLORS.area1}">● </tspan>${area1Name}`);
-    
-    // Area 2 label with colored circle
-    const area2Label = g.append('text')
-        .attr('class', 'sankey-node-text')
-        .attr('x', chartWidth - nodeWidth / 2)
-        .attr('y', -7)
-        .attr('fill', '#333')
-        .attr('text-anchor', 'middle')
-        .style('font-weight', '500')
-        .style('font-size', '12px')
-        .html(`<tspan fill="${EARTH_COLORS.area2}">● </tspan>${area2Name}`);
-    
-    // Add category labels on the sides (positioned to avoid overlap)
-    const categories = ['Office', 'Housing', 'Other'];
-    
-    // Left side category labels (positioned with larger gap from bars)
-    leftNodes.forEach((node, i) => {
-        g.append('text')
-            .attr('class', 'sankey-node-text')
-            .attr('x', -35) // Even larger gap from left bars
-            .attr('y', node.y + heightScale(node.value) / 2)
-            .attr('text-anchor', 'end') 
-            .attr('dominant-baseline', 'middle')
-            .style('font-size', '0.75em')
-            .style('fill', colors[node.category])
-            .style('font-weight', '600')
-            .text(categories[i]);
+    // Draw left nodes
+    leftPositions.forEach(node => {
+        g.append('rect')
+            .attr('x', 0)
+            .attr('y', node.y)
+            .attr('width', nodeWidth)
+            .attr('height', node.height)
+            .attr('fill', config.colors[node.category])
+            .attr('rx', 0);
+        
+        if (config.showValues && node.height > 15) {
+            g.append('text')
+                .attr('class', 'sankey-value-text')
+                .attr('x', nodeWidth / 2)
+                .attr('y', node.y + node.height / 2)
+                .text(node.displayValue || node.value.toLocaleString());
+        }
     });
     
-    // Right side category labels (positioned with larger gap from bars)  
-    rightNodes.forEach((node, i) => {
-        g.append('text')
-            .attr('class', 'sankey-node-text')
-            .attr('x', chartWidth + 35) // Even larger gap from right bars
-            .attr('y', node.y + heightScale(node.value) / 2)
-            .attr('text-anchor', 'start')
-            .attr('dominant-baseline', 'middle')
-            .style('font-size', '0.75em')
-            .style('fill', colors[node.category])
-            .style('font-weight', '600')
-            .text(categories[i]);
+    // Draw right nodes
+    rightPositions.forEach(node => {
+        g.append('rect')
+            .attr('x', chartWidth - nodeWidth)
+            .attr('y', node.y)
+            .attr('width', nodeWidth)
+            .attr('height', node.height)
+            .attr('fill', config.colors[node.category])
+            .attr('rx', 0);
+        
+        if (config.showValues && node.height > 15) {
+            g.append('text')
+                .attr('class', 'sankey-value-text')
+                .attr('x', chartWidth - nodeWidth / 2)
+                .attr('y', node.y + node.height / 2)
+                .text(node.displayValue || node.value.toLocaleString());
+        }
+    });
+    
+    // Add area labels - with colored text
+    g.append('text')
+        .attr('x', nodeWidth / 2)
+        .attr('y', -7)
+        .attr('text-anchor', 'middle')
+        .attr('fill', EARTH_COLORS.area1)
+        .style('font-weight', '600')
+        .style('font-size', '13px')
+        .text(config.area1Label);
+    
+    g.append('text')
+        .attr('x', chartWidth - nodeWidth / 2)
+        .attr('y', -7)
+        .attr('text-anchor', 'middle')
+        .attr('fill', EARTH_COLORS.area2)
+        .style('font-weight', '600')
+        .style('font-size', '13px')
+        .text(config.area2Label);
+    
+    // Add category labels if enabled
+    if (config.showCategoryLabels && config.categoryLabels) {
+        leftPositions.forEach((node, i) => {
+            // Left side labels
+            g.append('text')
+                .attr('x', -10)
+                .attr('y', node.y + node.height / 2)
+                .attr('text-anchor', 'end')
+                .attr('dominant-baseline', 'middle')
+                .attr('fill', '#999')
+                .style('font-size', '11px')
+                .style('font-weight', '500')
+                .text(config.categoryLabels[i]);
+        });
+        
+        rightPositions.forEach((node, i) => {
+            // Right side labels
+            g.append('text')
+                .attr('x', chartWidth + 10)
+                .attr('y', node.y + node.height / 2)
+                .attr('text-anchor', 'start')
+                .attr('dominant-baseline', 'middle')
+                .attr('fill', '#999')
+                .style('font-size', '11px')
+                .style('font-weight', '500')
+                .text(config.categoryLabels[i]);
+        });
+    }
+}
+
+// Update sankey diagram with curved connections between areas
+function updateSankeyDiagram() {
+    if (!area1Data || !area2Data) return;
+    
+    const chartMode = document.querySelector('input[name="chart-mode"]:checked').value;
+    
+    // Calculate totals for each area
+    const area1Total = area1Data.office + area1Data.housing + area1Data.other;
+    const area2Total = area2Data.office + area2Data.housing + area2Data.other;
+    
+    // Prepare data based on mode
+    let area1Nodes, area2Nodes, maxValue;
+    
+    if (chartMode === 'percentage') {
+        area1Nodes = [
+            { category: 'office', value: area1Data.office / area1Total, displayValue: `${Math.round((area1Data.office / area1Total) * 100)}%`, label: 'Office' },
+            { category: 'housing', value: area1Data.housing / area1Total, displayValue: `${Math.round((area1Data.housing / area1Total) * 100)}%`, label: 'Housing' },
+            { category: 'other', value: area1Data.other / area1Total, displayValue: `${Math.round((area1Data.other / area1Total) * 100)}%`, label: 'Other' }
+        ];
+        area2Nodes = [
+            { category: 'office', value: area2Data.office / area2Total, displayValue: `${Math.round((area2Data.office / area2Total) * 100)}%`, label: 'Office' },
+            { category: 'housing', value: area2Data.housing / area2Total, displayValue: `${Math.round((area2Data.housing / area2Total) * 100)}%`, label: 'Housing' },
+            { category: 'other', value: area2Data.other / area2Total, displayValue: `${Math.round((area2Data.other / area2Total) * 100)}%`, label: 'Other' }
+        ];
+        maxValue = 1;
+    } else {
+        area1Nodes = [
+            { category: 'office', value: area1Data.office, displayValue: Math.round(area1Data.office).toLocaleString(), label: 'Office' },
+            { category: 'housing', value: area1Data.housing, displayValue: Math.round(area1Data.housing).toLocaleString(), label: 'Housing' },
+            { category: 'other', value: area1Data.other, displayValue: Math.round(area1Data.other).toLocaleString(), label: 'Other' }
+        ];
+        area2Nodes = [
+            { category: 'office', value: area2Data.office, displayValue: Math.round(area2Data.office).toLocaleString(), label: 'Office' },
+            { category: 'housing', value: area2Data.housing, displayValue: Math.round(area2Data.housing).toLocaleString(), label: 'Housing' },
+            { category: 'other', value: area2Data.other, displayValue: Math.round(area2Data.other).toLocaleString(), label: 'Other' }
+        ];
+        maxValue = Math.max(area1Total, area2Total);
+    }
+    
+    const colors = {
+        office: EARTH_COLORS.office,
+        housing: EARTH_COLORS.housing,
+        other: EARTH_COLORS.other
+    };
+    
+    drawComparisonSankey('#sankey-chart', {
+        area1Data: area1Nodes,
+        area2Data: area2Nodes,
+        colors: colors,
+        area1Label: area1Name,
+        area2Label: area2Name,
+        categoryLabels: ['Office', 'Housing', 'Other'],
+        showValues: true,
+        showCategoryLabels: true,
+        maxValue: maxValue
     });
 }
 
@@ -933,22 +911,105 @@ function generateSummaryStatement() {
     
     const summaryEl = document.getElementById('comparison-summary');
     
-    // Determine which area is larger for each category, and reference the other area by name
-    const officeComparison = area1Data.office > area2Data.office ? 
-        `<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>は<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>より<b style="color:#ffffff;">${Math.abs(area1Data.office - area2Data.office).toLocaleString()} m²多い</b>オフィススペース` :
-        `<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>は<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>より<b style="color:#ffffff;">${Math.abs(area2Data.office - area1Data.office).toLocaleString()} m²多い</b>オフィススペース`;
+    // Get chart mode from radio buttons
+    const chartMode = document.querySelector('input[name="chart-mode"]:checked')?.value || 'actual';
     
-    const housingComparison = area1Data.housing > area2Data.housing ? 
-        `<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>は<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>より<b style="color:#ffffff;">${Math.abs(area1Data.housing - area2Data.housing).toLocaleString()} m²多い</b>住宅スペース` :
-        `<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>は<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>より<b style="color:#ffffff;">${Math.abs(area2Data.housing - area1Data.housing).toLocaleString()} m²多い</b>住宅スペース`;
+    let officeComparison, housingComparison;
+    
+    if (chartMode === 'percentage') {
+        // Percentage mode - compare percentages
+        const area1Total = area1Data.office + area1Data.housing + area1Data.other;
+        const area2Total = area2Data.office + area2Data.housing + area2Data.other;
+        
+        const area1OfficePct = (area1Data.office / area1Total * 100).toFixed(1);
+        const area2OfficePct = (area2Data.office / area2Total * 100).toFixed(1);
+        const area1HousingPct = (area1Data.housing / area1Total * 100).toFixed(1);
+        const area2HousingPct = (area2Data.housing / area2Total * 100).toFixed(1);
+        
+        officeComparison = area1OfficePct > area2OfficePct ?
+            `<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>は<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>より<b style="color:#ffffff;">${(area1OfficePct - area2OfficePct).toFixed(1)}ポイント高い</b>オフィススペースの割合（${area1OfficePct}% vs ${area2OfficePct}%）` :
+            `<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>は<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>より<b style="color:#ffffff;">${(area2OfficePct - area1OfficePct).toFixed(1)}ポイント高い</b>オフィススペースの割合（${area2OfficePct}% vs ${area1OfficePct}%）`;
+        
+        housingComparison = area1HousingPct > area2HousingPct ?
+            `<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>は<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>より<b style="color:#ffffff;">${(area1HousingPct - area2HousingPct).toFixed(1)}ポイント高い</b>住宅スペースの割合（${area1HousingPct}% vs ${area2HousingPct}%）` :
+            `<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>は<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>より<b style="color:#ffffff;">${(area2HousingPct - area1HousingPct).toFixed(1)}ポイント高い</b>住宅スペースの割合（${area2HousingPct}% vs ${area1HousingPct}%）`;
+    } else {
+        // Actual mode - compare actual numbers
+        officeComparison = area1Data.office > area2Data.office ?
+            `<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>は<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>より<b style="color:#ffffff;">${Math.abs(area1Data.office - area2Data.office).toLocaleString()} m²多い</b>オフィススペース（${area1Data.office.toLocaleString()} vs ${area2Data.office.toLocaleString()}）` :
+            `<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>は<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>より<b style="color:#ffffff;">${Math.abs(area2Data.office - area1Data.office).toLocaleString()} m²多い</b>オフィススペース（${area2Data.office.toLocaleString()} vs ${area1Data.office.toLocaleString()}）`;
+        
+        housingComparison = area1Data.housing > area2Data.housing ?
+            `<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>は<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>より<b style="color:#ffffff;">${Math.abs(area1Data.housing - area2Data.housing).toLocaleString()} m²多い</b>住宅スペース（${area1Data.housing.toLocaleString()} vs ${area2Data.housing.toLocaleString()}）` :
+            `<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>は<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>より<b style="color:#ffffff;">${Math.abs(area2Data.housing - area1Data.housing).toLocaleString()} m²多い</b>住宅スペース（${area2Data.housing.toLocaleString()} vs ${area1Data.housing.toLocaleString()}）`;
+    }
     
     const populationComparison = area1Data.population > area2Data.population ?
-        `<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>は<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>より<b style="color:#ffffff;">${Math.abs(area1Data.population - area2Data.population).toLocaleString()}人多い</b>人口` :
-        `<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>は<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>より<b style="color:#ffffff;">${Math.abs(area2Data.population - area1Data.population).toLocaleString()}人多い</b>人口`;
+        `<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>は<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>より<b style="color:#ffffff;">${Math.abs(area1Data.population - area2Data.population).toLocaleString()}人多い</b>人口（${area1Data.population.toLocaleString()} vs ${area2Data.population.toLocaleString()}）` :
+        `<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>は<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>より<b style="color:#ffffff;">${Math.abs(area2Data.population - area1Data.population).toLocaleString()}人多い</b>人口（${area2Data.population.toLocaleString()} vs ${area1Data.population.toLocaleString()}）`;
     
     summaryEl.innerHTML = `
         <div style='font-size:1em;color:#ffffff;margin-bottom:6px;'>
             ${officeComparison}を持っています。${housingComparison}を持っています。人口では、${populationComparison}となっています。
+        </div>
+    `;
+}
+
+// Generate age comparison summary statement
+function generateAgeSummaryStatement() {
+    if (!area1Data || !area2Data) return;
+    
+    const summaryEl = document.getElementById('age-comparison-summary');
+    if (!summaryEl) return;
+    
+    // Get view mode from radio buttons
+    const viewMode = document.querySelector('input[name="age-view-mode"]:checked')?.value || 'absolute';
+    
+    // Calculate age group totals and percentages
+    const area1Total = area1Data.age_0_14 + area1Data.age_15_64 + area1Data.age_65_plus;
+    const area2Total = area2Data.age_0_14 + area2Data.age_15_64 + area2Data.age_65_plus;
+    
+    let childrenComparison, workingComparison, elderlyComparison;
+    
+    if (viewMode === 'percent') {
+        // Percentage mode - compare percentages
+        const area1_0_14_pct = (area1Data.age_0_14 / area1Total * 100).toFixed(1);
+        const area1_15_64_pct = (area1Data.age_15_64 / area1Total * 100).toFixed(1);
+        const area1_65_plus_pct = (area1Data.age_65_plus / area1Total * 100).toFixed(1);
+        
+        const area2_0_14_pct = (area2Data.age_0_14 / area2Total * 100).toFixed(1);
+        const area2_15_64_pct = (area2Data.age_15_64 / area2Total * 100).toFixed(1);
+        const area2_65_plus_pct = (area2Data.age_65_plus / area2Total * 100).toFixed(1);
+        
+        childrenComparison = area1_0_14_pct > area2_0_14_pct ?
+            `<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>は<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>より<b style="color:#ffffff;">${(area1_0_14_pct - area2_0_14_pct).toFixed(1)}ポイント高い</b>子供（0-14歳）の割合（${area1_0_14_pct}% vs ${area2_0_14_pct}%）` :
+            `<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>は<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>より<b style="color:#ffffff;">${(area2_0_14_pct - area1_0_14_pct).toFixed(1)}ポイント高い</b>子供（0-14歳）の割合（${area2_0_14_pct}% vs ${area1_0_14_pct}%）`;
+        
+        workingComparison = area1_15_64_pct > area2_15_64_pct ?
+            `<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>は<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>より<b style="color:#ffffff;">${(area1_15_64_pct - area2_15_64_pct).toFixed(1)}ポイント高い</b>生産年齢人口（15-64歳）の割合（${area1_15_64_pct}% vs ${area2_15_64_pct}%）` :
+            `<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>は<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>より<b style="color:#ffffff;">${(area2_15_64_pct - area1_15_64_pct).toFixed(1)}ポイント高い</b>生産年齢人口（15-64歳）の割合（${area2_15_64_pct}% vs ${area1_15_64_pct}%）`;
+        
+        elderlyComparison = area1_65_plus_pct > area2_65_plus_pct ?
+            `<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>は<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>より<b style="color:#ffffff;">${(area1_65_plus_pct - area2_65_plus_pct).toFixed(1)}ポイント高い</b>高齢者（65歳以上）の割合（${area1_65_plus_pct}% vs ${area2_65_plus_pct}%）` :
+            `<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>は<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>より<b style="color:#ffffff;">${(area2_65_plus_pct - area1_65_plus_pct).toFixed(1)}ポイント高い</b>高齢者（65歳以上）の割合（${area2_65_plus_pct}% vs ${area1_65_plus_pct}%）`;
+    } else {
+        // Absolute mode - compare actual numbers
+        childrenComparison = area1Data.age_0_14 > area2Data.age_0_14 ?
+            `<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>は<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>より<b style="color:#ffffff;">${Math.abs(area1Data.age_0_14 - area2Data.age_0_14).toLocaleString()}人多い</b>子供（0-14歳）の人口（${area1Data.age_0_14.toLocaleString()} vs ${area2Data.age_0_14.toLocaleString()}）` :
+            `<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>は<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>より<b style="color:#ffffff;">${Math.abs(area2Data.age_0_14 - area1Data.age_0_14).toLocaleString()}人多い</b>子供（0-14歳）の人口（${area2Data.age_0_14.toLocaleString()} vs ${area1Data.age_0_14.toLocaleString()}）`;
+        
+        workingComparison = area1Data.age_15_64 > area2Data.age_15_64 ?
+            `<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>は<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>より<b style="color:#ffffff;">${Math.abs(area1Data.age_15_64 - area2Data.age_15_64).toLocaleString()}人多い</b>生産年齢人口（15-64歳）（${area1Data.age_15_64.toLocaleString()} vs ${area2Data.age_15_64.toLocaleString()}）` :
+            `<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>は<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>より<b style="color:#ffffff;">${Math.abs(area2Data.age_15_64 - area1Data.age_15_64).toLocaleString()}人多い</b>生産年齢人口（15-64歳）（${area2Data.age_15_64.toLocaleString()} vs ${area1Data.age_15_64.toLocaleString()}）`;
+        
+        elderlyComparison = area1Data.age_65_plus > area2Data.age_65_plus ?
+            `<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>は<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>より<b style="color:#ffffff;">${Math.abs(area1Data.age_65_plus - area2Data.age_65_plus).toLocaleString()}人多い</b>高齢者（65歳以上）（${area1Data.age_65_plus.toLocaleString()} vs ${area2Data.age_65_plus.toLocaleString()}）` :
+            `<span style="color:${EARTH_COLORS.area2};font-weight:500;">${area2Name}</span>は<span style="color:${EARTH_COLORS.area1};font-weight:500;">${area1Name}</span>より<b style="color:#ffffff;">${Math.abs(area2Data.age_65_plus - area1Data.age_65_plus).toLocaleString()}人多い</b>高齢者（65歳以上）（${area2Data.age_65_plus.toLocaleString()} vs ${area1Data.age_65_plus.toLocaleString()}）`;
+    }
+    
+    summaryEl.innerHTML = `
+        <div style='font-size:1em;color:#ffffff;margin-bottom:6px;'>
+            ${childrenComparison}を持っています。${workingComparison}を持っています。${elderlyComparison}となっています。
         </div>
     `;
 }
@@ -1001,3 +1062,85 @@ function updateNavigationLinks(area1, area2) {
         area2Link.style.display = 'inline';
     }
 }
+
+// Draw age comparison sankey diagram
+function drawAgeComparisonSankey() {
+    if (!area1Data || !area2Data) return;
+    
+    // Get view mode from radio buttons
+    const viewMode = document.querySelector('input[name="age-view-mode"]:checked')?.value || 'absolute';
+    
+    // Setup age data for both areas
+    const area1Total = area1Data.age_0_14 + area1Data.age_15_64 + area1Data.age_65_plus;
+    const area2Total = area2Data.age_0_14 + area2Data.age_15_64 + area2Data.age_65_plus;
+    
+    if (area1Total === 0 || area2Total === 0) {
+        const container = document.getElementById('age-sankey-container');
+        if (container) {
+            container.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #ccc;">年齢データがありません</div>';
+        }
+        return;
+    }
+    
+    // Prepare data based on mode
+    let area1Nodes, area2Nodes, maxValue;
+    
+    if (viewMode === 'percent') {
+        area1Nodes = [
+            { category: 'age_0_14', value: (area1Data.age_0_14 / area1Total) * 100, displayValue: `${Math.round((area1Data.age_0_14 / area1Total) * 100)}%`, label: '0-14' },
+            { category: 'age_15_64', value: (area1Data.age_15_64 / area1Total) * 100, displayValue: `${Math.round((area1Data.age_15_64 / area1Total) * 100)}%`, label: '15-64' },
+            { category: 'age_65_plus', value: (area1Data.age_65_plus / area1Total) * 100, displayValue: `${Math.round((area1Data.age_65_plus / area1Total) * 100)}%`, label: '65+' }
+        ];
+        area2Nodes = [
+            { category: 'age_0_14', value: (area2Data.age_0_14 / area2Total) * 100, displayValue: `${Math.round((area2Data.age_0_14 / area2Total) * 100)}%`, label: '0-14' },
+            { category: 'age_15_64', value: (area2Data.age_15_64 / area2Total) * 100, displayValue: `${Math.round((area2Data.age_15_64 / area2Total) * 100)}%`, label: '15-64' },
+            { category: 'age_65_plus', value: (area2Data.age_65_plus / area2Total) * 100, displayValue: `${Math.round((area2Data.age_65_plus / area2Total) * 100)}%`, label: '65+' }
+        ];
+        maxValue = 100;
+    } else {
+        area1Nodes = [
+            { category: 'age_0_14', value: area1Data.age_0_14, displayValue: Math.round(area1Data.age_0_14).toLocaleString(), label: '0-14' },
+            { category: 'age_15_64', value: area1Data.age_15_64, displayValue: Math.round(area1Data.age_15_64).toLocaleString(), label: '15-64' },
+            { category: 'age_65_plus', value: area1Data.age_65_plus, displayValue: Math.round(area1Data.age_65_plus).toLocaleString(), label: '65+' }
+        ];
+        area2Nodes = [
+            { category: 'age_0_14', value: area2Data.age_0_14, displayValue: Math.round(area2Data.age_0_14).toLocaleString(), label: '0-14' },
+            { category: 'age_15_64', value: area2Data.age_15_64, displayValue: Math.round(area2Data.age_15_64).toLocaleString(), label: '15-64' },
+            { category: 'age_65_plus', value: area2Data.age_65_plus, displayValue: Math.round(area2Data.age_65_plus).toLocaleString(), label: '65+' }
+        ];
+        maxValue = Math.max(area1Total, area2Total);
+    }
+    
+    const colors = {
+        age_0_14: '#9ca3af',     // Light gray - children
+        age_15_64: '#6b7280',    // Medium gray - working age
+        age_65_plus: '#4b5563'   // Dark gray - elderly
+    };
+    
+    drawComparisonSankey('#age-sankey-container', {
+        area1Data: area1Nodes,
+        area2Data: area2Nodes,
+        colors: colors,
+        area1Label: area1Name,
+        area2Label: area2Name,
+        categoryLabels: ['0-14', '15-64', '65+'],
+        showValues: true,
+        showCategoryLabels: true,
+        maxValue: maxValue
+    });
+    
+    // Generate age summary statement
+    generateAgeSummaryStatement();
+}
+
+// Listen for view mode changes
+document.addEventListener('DOMContentLoaded', () => {
+    const ageViewModeInputs = document.querySelectorAll('input[name="age-view-mode"]');
+    ageViewModeInputs.forEach(input => {
+        input.addEventListener('change', () => {
+            if (area1Data && area2Data) {
+                drawAgeComparisonSankey();
+            }
+        });
+    });
+});

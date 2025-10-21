@@ -61,10 +61,13 @@ html, body {
 /* ===========================================================
 	2. Map Container
 	=========================================================== */
+/* #map styles moved to common.css for consistency across modes */
+/* 
 #map {
 	height: 100vh;
 	width: 100vw;
 }
+*/
 
 /* ===========================================================
 	3. Side Panel Styles

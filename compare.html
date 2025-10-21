@@ -11,6 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles/common.css">
     <link rel="stylesheet" href="styles/style.css">
     <style>
         body {
@@ -242,10 +243,7 @@
         }        /* Sankey Diagram Styles */
         .sankey-section {
             margin-bottom: 15px;
-            background: rgba(26, 26, 26, 0.8);
-            border: 1px solid #333;
             padding: 15px;
-            backdrop-filter: blur(5px);
         }
         
         .sankey-container {
@@ -548,6 +546,12 @@
     <div class="data-container">
         <div class="data-panel-content">
                 
+                <!-- Page Title -->
+                <h2 style="font-family: 'Noto Serif JP', serif; font-size: 1.8rem; font-weight: 400; margin-top: 0; margin-bottom: 15px; color: #f5f5f5; text-align: center; letter-spacing: 0.05em;">Mirror</h2>
+                
+                <!-- Summary Statement -->
+                <div id="comparison-summary" class="panel-summary-statement" style="margin-bottom: 20px; background: rgba(26, 26, 26, 0.95); color: #ffffff; font-weight: 400; border: none; backdrop-filter: blur(5px);"></div>
+                
                 <!-- Area Comparison Section -->
                 <div class="area-comparison">
                     <div class="dropdown-container">
@@ -566,6 +570,7 @@
 
                 <!-- Sankey Diagram Section -->
                 <div class="sankey-section" id="sankey-section" style="display: none;">
+                    <h3 style="color: #fff; font-size: 1.3rem; margin-bottom: 15px;">土地利用比較</h3>
                     <div class="chart-toggle">
                         <label class="toggle-label">
                             <input type="radio" name="chart-mode" value="actual" checked>
@@ -581,22 +586,25 @@
                         <!-- D3 Sankey Visualization -->
                         <div id="sankey-chart"></div>
                     </div>
-                    
-                    <!-- Summary Statement -->
-                    <div id="comparison-summary" class="panel-summary-statement" style="margin-top: 20px; background: rgba(26, 26, 26, 0.95); color: #ffffff; font-weight: 400; border: 1px solid #444; backdrop-filter: blur(5px);"></div>
                 </div>
 
-                <!-- Population Comparison -->
-                <div class="comparison-grid" id="population-comparison">
-                    <div class="comparison-item area1">
-                        <div class="comparison-category">人口</div>
-                        <div class="comparison-value" id="area1-population">-</div>
-                        <div class="comparison-difference" id="population-diff">-</div>
+                <!-- Age Comparison Section -->
+                <div class="age-comparison-section" id="age-comparison-section" style="margin-top: 30px;">
+                    <h3 style="color: #fff; font-size: 1.3rem; margin-bottom: 15px;">年齢構成比較</h3>
+                    <div class="chart-toggle" style="margin-bottom: 15px; display: flex; gap: 15px; justify-content: center;">
+                        <label class="toggle-label" style="color: #999; cursor: pointer;">
+                            <input type="radio" name="age-view-mode" value="absolute" checked style="margin-right: 5px;">
+                            実数
+                        </label>
+                        <label class="toggle-label" style="color: #999; cursor: pointer;">
+                            <input type="radio" name="age-view-mode" value="percent" style="margin-right: 5px;">
+                            割合
+                        </label>
                     </div>
-                    <div class="comparison-item area2">
-                        <div class="comparison-category">人口</div>
-                        <div class="comparison-value" id="area2-population">-</div>
-                    </div>
+                    <div class="sankey-container" id="age-sankey-container" style="min-height: 250px;"></div>
+                    
+                    <!-- Age Summary Statement -->
+                    <div id="age-comparison-summary" class="panel-summary-statement" style="margin-top: 20px; background: rgba(26, 26, 26, 0.95); color: #ffffff; font-weight: 400; border: none; backdrop-filter: blur(5px);"></div>
                 </div>
 
                 <!-- Land Use Comparison -->
