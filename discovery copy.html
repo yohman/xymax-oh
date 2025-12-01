@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>東京物語 - Discovery Mode</title>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="js/xymax.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles/common.css">
+    <link rel="stylesheet" href="styles/style.css?v=20251019e">
+    <style>
+        /* Discovery mode specific styles - all common styles moved to common.css */
+    </style>
+</head>
+<body>
+    <div class="split-container">
+        <!-- Left Side: Map -->
+        <div class="map-side">
+            <!-- Basemap selector at bottom left of map panel -->
+            <div class="basemap-toggle" style="position: absolute; bottom: 24px; left: 24px; z-index: 1200; background: rgba(26,26,26,0.85); border: 1px solid #333; border-radius: 6px; padding: 8px 12px;">
+                <label for="basemap-select" style="color:#fff; margin-right:8px;">地図:</label>
+                <select id="basemap-select" style="padding:4px 8px;">
+                    <option value="satellite">衛星写真</option>
+                    <option value="gsi">国土地理院</option>
+                </select>
+            </div>
+            <div id="map"></div>
+            <div class="map-header">
+                <a href="index.html" class="back-arrow">←</a>
+                <h1 class="compare-title">東京物語</h1>
+            </div>
+        </div>
+        
+        <!-- Right Side: Data -->
+        <div class="data-side">
+            
+            <div class="data-content">
+                <!-- Page Title -->
+                <h2 style="font-family: 'Noto Serif JP', serif; font-size: 1.8rem; font-weight: 400; margin-top: 0; margin-bottom: 15px; color: #f5f5f5; text-align: center; letter-spacing: 0.05em;">Glide</h2>
+                
+                <!-- Summary Statement -->
+                <div id="single-summary" class="panel-summary-statement" style="margin-bottom: 20px; background: rgba(26, 26, 26, 0.95); color: #ffffff; font-weight: 400; border: none; backdrop-filter: blur(5px);"></div>
+                
+                <!-- Sankey Diagram -->
+                <div class="sankey-section" id="landuse-section">
+                    <h3 class="summary-title">土地利用の変化</h3>
+                    <div class="chart-toggle">
+                        <label class="toggle-label">
+                            <input type="radio" name="view-mode" value="absolute" checked>
+                            実数
+                        </label>
+                        <label class="toggle-label">
+                            <input type="radio" name="view-mode" value="percent">
+                            割合
+                        </label>
+                    </div>
+                    <div class="sankey-container" id="sankey-container"></div>
+                </div>
+                
+                <!-- Age Breakdown Section -->
+                <div class="sankey-section" id="age-section" style="display: none; margin-top: 10px;">
+                    <h3 class="summary-title">年齢構成</h3>
+                    <div class="chart-toggle">
+                        <label class="toggle-label">
+                            <input type="radio" name="age-view-mode" value="absolute" checked>
+                            実数
+                        </label>
+                        <label class="toggle-label">
+                            <input type="radio" name="age-view-mode" value="percent">
+                            割合
+                        </label>
+                    </div>
+                    <div class="sankey-container" id="age-sankey-container" style="min-height: 200px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="js/settings.js?v=20251019e"></script>
+    
+    <script>
+        // Global variables
+        let map;
+        let currentArea = null;
+        let currentAreaName = null;
+        let viewMode = 'absolute'; // 'absolute' or 'percent' for land use
+        let ageViewMode = 'absolute'; // 'absolute' or 'percent' for age
+        let selectedFeatures = new Map();
+        let currentAreaMarker = null;
+        let mapLoaded = false;
+        
+        // Initialize the discovery application
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initializeMap();
+            setupDiscoveryMode();
+            clearSankey(); // Initialize with empty state message
+        });
+        
+        // Initialize Mapbox map
+        async function initializeMap() {
+            // Token is already set in settings.js
+            
+            const basemaps = {
+                satellite: {
+                    version: 8,
+                    sources: {
+                        'esri-world-imagery': {
+                            type: "raster",
+                            tiles: [
+                                "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                            ],
+                            tileSize: 256,
+                            attribution: "Tiles &copy; <a href=\"https://www.esri.com/\">Esri</a>  Source: Esri, Earthstar Geographics",
+                            maxzoom: 19
+                        }
+                    },
+                    layers: [
+                        {
+                            id: "esri-world-imagery-layer",
+                            type: "raster",
+                            source: "esri-world-imagery"
+                        }
+                    ]
+                },
+                gsi: {
+                    version: 8,
+                    sources: {
+                        'gsi-pale': {
+                            type: "raster",
+                            tiles: [
+                                "https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png"
+                            ],
+                            tileSize: 256,
+                            attribution: "地理院タイル &copy; <a href=\"https://www.gsi.go.jp/\">国土地理院</a>",
+                            maxzoom: 18
+                        }
+                    },
+                    layers: [
+                        {
+                            id: "gsi-pale-layer",
+                            type: "raster",
+                            source: "gsi-pale"
+                        }
+                    ]
+                }
+            };
+
+            let currentBasemap = 'satellite';
+            map = new mapboxgl.Map({
+                container: 'map',
+                style: basemaps[currentBasemap],
+                center: [139.6917, 35.6895],
+                zoom: 10,
+                pitch: 0,
+                bearing: 0
+            });
+
+            document.getElementById('basemap-select').addEventListener('change', function(e) {
+                currentBasemap = e.target.value;
+                
+                // Save current camera position
+                const center = map.getCenter();
+                const zoom = map.getZoom();
+                const bearing = map.getBearing();
+                const pitch = map.getPitch();
+                
+                // Set new style
+                map.setStyle(basemaps[currentBasemap]);
+                
+                // Restore camera position after style loads
+                map.once('style.load', () => {
+                    map.jumpTo({
+                        center: center,
+                        zoom: zoom,
+                        bearing: bearing,
+                        pitch: pitch
+                    });
+                });
+            });
+
+            // Re-add geojson source and layers after style change
+            map.on('styledata', async () => {
+                // Check if source already exists
+                if (!map.getSource('tokyo-data')) {
+                    try {
+                        const response = await fetch('data/tokyo_slim_pop.geojson');
+                        const tokyoData = await response.json();
+                        map.addSource('tokyo-data', {
+                            type: 'geojson',
+                            data: tokyoData,
+                            generateId: true
+                        });
+                        // Add base grid layer (uses feature-state for dimming)
+                        map.addLayer({
+                            id: 'tokyo-layer',
+                            type: 'fill',
+                            source: 'tokyo-data',
+                            paint: {
+                                'fill-color': '#000000',
+                                'fill-opacity': [
+                                    'case',
+                                    ['boolean', ['feature-state', 'hover'], false], XYMAX.config.mapLayers.baseFillOpacity.hidden,
+                                    ['boolean', ['feature-state', 'selected'], false], XYMAX.config.mapLayers.baseFillOpacity.hidden,
+                                    XYMAX.config.mapLayers.baseFillOpacity.dimmed
+                                ]
+                            }
+                        });
+                        // Add subtle grid borders
+                        map.addLayer({
+                            id: 'tokyo-layer-outline',
+                            type: 'line',
+                            source: 'tokyo-data',
+                            paint: {
+                                'line-color': XYMAX.config.mapLayers.outline.color,
+                                'line-width': XYMAX.config.mapLayers.outline.width,
+                                'line-opacity': XYMAX.config.mapLayers.outline.opacity
+                            }
+                        });
+                        // Add selected outline (purple borders)
+                        map.addLayer({
+                            id: 'tokyo-layer-selected-outline',
+                            type: 'line',
+                            source: 'tokyo-data',
+                            paint: {
+                                'line-color': XYMAX.config.mapLayers.selectedOutline.color,
+                                'line-width': XYMAX.config.mapLayers.selectedOutline.width,
+                                'line-opacity': [
+                                    'case',
+                                    ['boolean', ['feature-state', 'selected'], false], XYMAX.config.mapLayers.selectedOutline.opacity,
+                                    0
+                                ]
+                            }
+                        });
+                        
+                        // Restore hover state if exists
+                        if (currentHoveredFeatureId !== null && !isSticky) {
+                            map.setFeatureState({
+                                source: 'tokyo-data',
+                                id: currentHoveredFeatureId
+                            }, {
+                                hover: true
+                            });
+                        }
+                        
+                        // Restore selected states
+                        selectedGrids.forEach((feature) => {
+                            if (feature.id !== undefined) {
+                                map.setFeatureState({
+                                    source: 'tokyo-data',
+                                    id: feature.id
+                                }, {
+                                    selected: true
+                                });
+                            }
+                        });
+                    } catch (error) {
+                        console.error('Error re-adding layers after basemap change:', error);
+                    }
+                }
+            });
+            
+            map.on('load', async () => {
+                try {
+                // Load Tokyo data
+                const response = await fetch('data/tokyo_slim_pop.geojson');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                const tokyoData = await response.json();
+                    
+                    if (!tokyoData.features || !Array.isArray(tokyoData.features)) {
+                        throw new Error('Invalid GeoJSON structure');
+                    }
+                    
+                    // Check if source already exists before adding
+                    if (!map.getSource('tokyo-data')) {
+                        map.addSource('tokyo-data', {
+                            type: 'geojson',
+                            data: tokyoData,
+                            generateId: true
+                        });
+                    }
+                    
+                    // Add base grid layer (dark overlay by default, except hovered/selected)
+                    if (!map.getLayer('tokyo-layer')) {
+                        map.addLayer({
+                            id: 'tokyo-layer',
+                            type: 'fill',
+                            source: 'tokyo-data',
+                            paint: {
+                                'fill-color': '#000000',
+                                'fill-opacity': [
+                                    'case',
+                                    ['boolean', ['feature-state', 'hover'], false], XYMAX.config.mapLayers.baseFillOpacity.hidden,
+                                    ['boolean', ['feature-state', 'selected'], false], XYMAX.config.mapLayers.baseFillOpacity.hidden,
+                                    XYMAX.config.mapLayers.baseFillOpacity.dimmed
+                                ]
+                            }
+                        });
+                    }
+                    
+                    // Add subtle grid borders for visibility
+                    if (!map.getLayer('tokyo-layer-outline')) {
+                        map.addLayer({
+                            id: 'tokyo-layer-outline',
+                            type: 'line',
+                            source: 'tokyo-data',
+                            paint: {
+                                'line-color': XYMAX.config.mapLayers.outline.color,
+                                'line-width': XYMAX.config.mapLayers.outline.width,
+                                'line-opacity': XYMAX.config.mapLayers.outline.opacity
+                            }
+                        });
+                    }
+
+                    // Remove the separate hover layer - not needed anymore
+                    
+                    // Add outline for selected grids (purple borders)
+                    if (!map.getLayer('tokyo-layer-selected-outline')) {
+                        map.addLayer({
+                            id: 'tokyo-layer-selected-outline',
+                            type: 'line',
+                            source: 'tokyo-data',
+                            paint: {
+                                'line-color': XYMAX.config.mapLayers.selectedOutline.color,
+                                'line-width': XYMAX.config.mapLayers.selectedOutline.width,
+                                'line-opacity': [
+                                    'case',
+                                    ['boolean', ['feature-state', 'selected'], false], XYMAX.config.mapLayers.selectedOutline.opacity,
+                                    0
+                                ]
+                            }
+                        });
+                    }
+                    
+                    console.log('Map initialized successfully with', tokyoData.features.length, 'features');
+                    mapLoaded = true;
+                } catch (error) {
+                    console.error('Error loading map data:', error);
+                    mapLoaded = true; // Set to true even on error so UI doesn't get stuck
+                }
+            });
+        }
+        
+        // Load area options for dropdown
+        async function loadAreaOptions() {
+            try {
+                console.log('Starting to load area options...');
+                const response = await fetch('data/salsa.geojson');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                const data = await response.json();
+                console.log('GeoJSON loaded, features count:', data.features ? data.features.length : 0);
+                
+                if (!data.features || !Array.isArray(data.features)) {
+                    throw new Error('Invalid GeoJSON structure: missing features array');
+                }
+                
+                const areaDropdown = document.getElementById('area-dropdown');
+                if (!areaDropdown) {
+                    console.error('Area dropdown element not found!');
+                    return;
+                }
+                
+                // Sample a few features to see their structure
+                console.log('Sample features:', data.features.slice(0, 3).map(f => f.properties));
+                
+                const areaNames = Array.from(new Set(
+                    data.features
+                        .map(f => f.properties && f.properties.AREA_NAME)
+                        .filter(name => name && typeof name === 'string')
+                )).sort();
+                
+                console.log('Extracted area names:', areaNames.slice(0, 10)); // First 10 names
+                
+                if (areaNames.length === 0) {
+                    throw new Error('No valid area names found in data');
+                }
+                
+                areaNames.forEach(name => {
+                    const option = document.createElement('option');
+                    option.value = name;
+                    option.textContent = name;
+                    areaDropdown.appendChild(option);
+                });
+                
+                console.log('Area options loaded successfully:', areaNames.length);
+            } catch (error) {
+                console.error('Error loading area options:', error);
+                const areaDropdown = document.getElementById('area-dropdown');
+                areaDropdown.innerHTML = '<option value="">Error loading areas</option>';
+            }
+        }
+        
+        // Setup event listeners
+        // Setup discovery mode with hover interactions
+        function setupDiscoveryMode() {
+            console.log('Setting up discovery mode...');
+            
+            // Wait for map to be loaded
+            if (!mapLoaded) {
+                setTimeout(setupDiscoveryMode, 500);
+                return;
+            }
+            
+            // Show all grids initially
+            showAllGrids();
+            
+            // Set up hover interactions
+            setupHoverInteractions();
+            
+            // Set up view mode toggle (radio buttons) for land use
+            const radioButtons = document.querySelectorAll('input[name="view-mode"]');
+            radioButtons.forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    viewMode = e.target.value;
+                    if (currentHoveredGrid) {
+                        updateSankeyDiagram();
+                    }
+                });
+            });
+            
+            // Set up view mode toggle (radio buttons) for age
+            const ageRadioButtons = document.querySelectorAll('input[name="age-view-mode"]');
+            ageRadioButtons.forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    ageViewMode = e.target.value;
+                    if (currentHoveredGrid) {
+                        // Redraw age sankey with new mode
+                        drawAgeSankey(
+                            currentHoveredGrid.properties.pop_0_14 || 0,
+                            currentHoveredGrid.properties.pop_15_64 || 0,
+                            currentHoveredGrid.properties.pop_65_plus || 0
+                        );
+                    }
+                });
+            });
+        }
+        
+        // Show all grids on the map
+        function showAllGrids() {
+            console.log('Showing all grids...');
+            // Always keep base grid visible, just clear hover highlight
+            if (map.getLayer('tokyo-layer-hover')) {
+                map.setFilter('tokyo-layer-hover', ['==', 'KEY_CODE', '']);
+            }
+        }
+        
+        let currentHoveredGrid = null;
+        let currentHoveredKeyCode = null;
+        let currentHoveredFeatureId = null;
+        let selectedGrids = new Map(); // Store clicked/selected grids
+        let isSticky = false; // Track if we're in sticky mode
+        
+        // Setup hover interactions for grid discovery
+        function setupHoverInteractions() {
+            console.log('Setting up hover interactions...');
+            
+            // Mouse move event - highlight grid and show data
+            map.on('mousemove', 'tokyo-layer', (e) => {
+                if (e.features.length > 0) {
+                    const feature = e.features[0];
+                    const keyCode = feature.properties.KEY_CODE;
+                    const featureId = feature.id;
+                    
+                    // Skip hover effects if in sticky mode
+                    if (!isSticky) {
+                        // Only update if we're hovering over a different grid
+                        if (featureId !== currentHoveredFeatureId) {
+                            // Remove previous hover state only if different
+                            if (currentHoveredFeatureId !== null) {
+                                map.setFeatureState({
+                                    source: 'tokyo-data',
+                                    id: currentHoveredFeatureId
+                                }, {
+                                    hover: false
+                                });
+                            }
+                            
+                            // Set new hover state
+                            currentHoveredKeyCode = keyCode;
+                            currentHoveredFeatureId = featureId;
+                            
+                            map.setFeatureState({
+                                source: 'tokyo-data',
+                                id: featureId
+                            }, {
+                                hover: true
+                            });
+                            
+                            handleGridHover(feature);
+                        }
+                    }
+                    
+                    // Set pointer cursor
+                    map.getCanvas().style.cursor = 'pointer';
+                } else {
+                    // If not hovering any feature, reset
+                    if (currentHoveredFeatureId !== null && !isSticky) {
+                        map.setFeatureState({
+                            source: 'tokyo-data',
+                            id: currentHoveredFeatureId
+                        }, {
+                            hover: false
+                        });
+                        currentHoveredFeatureId = null;
+                        currentHoveredKeyCode = null;
+                        currentHoveredGrid = null;
+                        clearSankey();
+                        updateGridInfo(null);
+                        hideSummary();
+                    }
+                    map.getCanvas().style.cursor = '';
+                }
+            });
+            
+            // Click event - stick/unstick grid selection
+            map.on('click', 'tokyo-layer', async (e) => {
+                if (e.features.length > 0) {
+                    const feature = e.features[0];
+                    const keyCode = feature.properties.KEY_CODE;
+                    const featureId = feature.id;
+                    
+                    // Toggle selection
+                    if (selectedGrids.has(keyCode)) {
+                        // Unstick this grid - remove feature state
+                        map.setFeatureState({
+                            source: 'tokyo-data',
+                            id: featureId
+                        }, {
+                            selected: false
+                        });
+                        selectedGrids.delete(keyCode);
+                    } else {
+                        // Add this grid to selection - set feature state
+                        map.setFeatureState({
+                            source: 'tokyo-data',
+                            id: featureId
+                        }, {
+                            selected: true
+                        });
+                        selectedGrids.set(keyCode, feature);
+                    }
+                    
+                    // Clear hover state when entering sticky mode
+                    if (currentHoveredFeatureId !== null) {
+                        map.setFeatureState({
+                            source: 'tokyo-data',
+                            id: currentHoveredFeatureId
+                        }, {
+                            hover: false
+                        });
+                        currentHoveredFeatureId = null;
+                    }
+                    
+                    // Update sticky mode
+                    isSticky = selectedGrids.size > 0;
+                    
+                    // Update visualization
+                    await handleGridSelection();
+                }
+            });
+            
+            // Click outside grids to clear all selections
+            map.on('click', (e) => {
+                const features = map.queryRenderedFeatures(e.point, { layers: ['tokyo-layer'] });
+                if (features.length === 0 && isSticky) {
+                    // Clear all selected feature states
+                    selectedGrids.forEach((feature) => {
+                        if (feature.id) {
+                            map.setFeatureState({
+                                source: 'tokyo-data',
+                                id: feature.id
+                            }, {
+                                selected: false
+                            });
+                        }
+                    });
+                    // Clicked outside grids - clear all selections
+                    selectedGrids.clear();
+                    isSticky = false;
+                    currentHoveredKeyCode = null;
+                    currentHoveredGrid = null;
+                    showAllGrids();
+                    clearSankey();
+                    updateGridInfo(null);
+                    hideSummary();
+                }
+            });
+        }
+        
+        // Handle grid selection (click to stick)
+        async function handleGridSelection() {
+            try {
+                // No need to update filters anymore - feature-state handles the visual updates
+                const selectedKeyCodes = Array.from(selectedGrids.keys());
+                
+                // Load data for all selected grids
+                const response = await fetch('data/tokyo_slim_pop.geojson');
+                const data = await response.json();
+                
+                // Combine features from all selected grids
+                const allSelectedFeatures = [];
+                selectedKeyCodes.forEach(keyCode => {
+                    const gridFeatures = data.features.filter(f => 
+                        f.properties && f.properties.KEY_CODE === keyCode
+                    );
+                    allSelectedFeatures.push(...gridFeatures);
+                });
+                
+                if (allSelectedFeatures.length > 0) {
+                    currentHoveredGrid = allSelectedFeatures;
+                    
+                    // Update visualizations with combined data
+                    updateSankeyDiagram();
+                    updateSingleSummary(allSelectedFeatures);
+                    updateSummary(allSelectedFeatures);
+                    
+                    // Zoom to selected grids
+                    await highlightArea(selectedKeyCodes);
+                    
+                    // Update grid info display
+                    const gridInfoEl = document.getElementById('current-grid-info');
+                    if (gridInfoEl) {
+                        if (selectedKeyCodes.length === 1) {
+                            gridInfoEl.innerHTML = `<strong>選択中:</strong> Grid ${selectedKeyCodes[0]}`;
+                        } else {
+                            gridInfoEl.innerHTML = `<strong>選択中:</strong> ${selectedKeyCodes.length} グリッド`;
+                        }
+                    }
+                    
+                    // Age section display is now handled in updateSummary
+                } else {
+                    clearSankey();
+                    hideSummary();
+                }
+            } catch (error) {
+                console.error('Error handling grid selection:', error);
+            }
+        }
+        
+        // Handle grid hover - highlight specific grid and show its data
+        async function handleGridHover(feature) {
+            console.log('Grid hovered:', feature.properties.KEY_CODE);
+            
+            try {
+                // Feature state already set in setupHoverInteractions
+                const keyCode = feature.properties.KEY_CODE;
+                
+                // Load data for this specific grid
+                const response = await fetch('data/tokyo_slim_pop.geojson');
+                const data = await response.json();
+                
+                // Find features for this grid
+                const gridFeatures = data.features.filter(f => 
+                    f.properties && f.properties.KEY_CODE === keyCode
+                );
+                
+                if (gridFeatures.length > 0) {
+                    currentHoveredGrid = gridFeatures;
+                    
+                    // Update the visualization
+                    updateSankeyDiagram();
+                    updateSingleSummary(gridFeatures);
+                    updateSummary(gridFeatures);
+                    
+                    // Update grid info display
+                    updateGridInfo(feature);
+                    
+                    // Age section display is now handled in updateSummary
+                } else {
+                    console.log('No data found for grid:', keyCode);
+                }
+                
+            } catch (error) {
+                console.error('Error handling grid hover:', error);
+            }
+        }
+        
+        // Update the grid information display
+        function updateGridInfo(feature) {
+            const infoEl = document.getElementById('current-grid-info');
+            if (!infoEl) return;
+            
+            if (feature && feature.properties) {
+                const props = feature.properties;
+                infoEl.innerHTML = `
+                    <strong>Grid:</strong> ${props.KEY_CODE || 'Unknown'} 
+                    ${props.AREA_NAME ? `<span style="margin-left: 10px;">Area: ${props.AREA_NAME}</span>` : ''}
+                `;
+            } else {
+                infoEl.innerHTML = '';
+            }
+        }
+        
+        // Handle area selection change
+        async function handleAreaChange() {
+            console.log('handleAreaChange called');
+            
+            // Check if map is loaded before proceeding
+            if (!mapLoaded) {
+                console.log('Map not loaded yet, waiting...');
+                setTimeout(handleAreaChange, 500);
+                return;
+            }
+            
+            const areaDropdown = document.getElementById('area-dropdown');
+            const selectedArea = areaDropdown.value;
+            console.log('Selected area:', selectedArea);
+            
+            if (!selectedArea) {
+                console.log('No area selected, clearing displays');
+                currentArea = null;
+                clearHighlight();
+                hideSummary();
+                clearSankey();
+                return;
+            }
+            
+            currentArea = selectedArea;
+            
+            try {
+                console.log('Loading data for area:', selectedArea);
+                
+                // Load both area boundaries and land use data
+                const [areaResponse, landUseResponse] = await Promise.all([
+                    fetch('data/salsa.geojson'),
+                    fetch('data/tokyo_slim_pop.geojson')
+                ]);
+                
+                if (!areaResponse.ok) {
+                    throw new Error(`Area data HTTP ${areaResponse.status}: ${areaResponse.statusText}`);
+                }
+                if (!landUseResponse.ok) {
+                    throw new Error(`Land use HTTP ${landUseResponse.status}: ${landUseResponse.statusText}`);
+                }
+                
+                const [areaData, landUseData] = await Promise.all([
+                    areaResponse.json(),
+                    landUseResponse.json()
+                ]);
+                
+                // Find the selected area boundary
+                const selectedAreaFeature = areaData.features.find(feature => 
+                    feature.properties.AREA_NAME === selectedArea
+                );
+                
+                if (!selectedAreaFeature) {
+                    throw new Error(`Area not found: ${selectedArea}`);
+                }
+                
+                currentAreaName = selectedAreaFeature.properties.AREA_NAME;
+                console.log('Selected area feature:', currentAreaName);
+                
+                // Find land use features that intersect with the selected area
+                const areaLandUseFeatures = landUseData.features.filter(landUseFeature => {
+                    if (!landUseFeature.properties || !landUseFeature.properties.KEY_CODE) {
+                        return false;
+                    }
+                    
+                    try {
+                        // Use Turf.js to check if the land use feature intersects with the area boundary
+                        return turf.booleanIntersects(selectedAreaFeature, landUseFeature);
+                    } catch (error) {
+                        console.warn('Intersection check failed:', error);
+                        return false;
+                    }
+                });
+                
+                console.log('Found intersecting land use features:', areaLandUseFeatures.length);
+                
+                const keyCodes = areaLandUseFeatures
+                    .map(f => f.properties.KEY_CODE)
+                    .filter(code => code !== undefined && code !== null);
+                console.log('Key codes:', keyCodes.length, keyCodes.slice(0, 5));
+                
+                // Store features (using filtered land use data)
+                selectedFeatures.clear();
+                areaLandUseFeatures.forEach(f => {
+                    if (f.properties && f.properties.KEY_CODE) {
+                        selectedFeatures.set(f.properties.KEY_CODE, f);
+                    }
+                });
+                console.log('Stored features in selectedFeatures:', selectedFeatures.size);
+                
+                // Update map first, then visualizations
+                console.log('Highlighting area...');
+                await highlightArea(keyCodes);
+                
+                // Add area label to map
+                console.log('Adding area label...');
+                addAreaLabelToMap(areaLandUseFeatures, currentAreaName);
+                
+                // Update visualizations after map is updated
+                console.log('Updating sankey diagram...');
+                updateSankeyDiagram();
+                console.log('Updating summary...');
+                updateSingleSummary(areaLandUseFeatures);
+                // Age section visibility is now handled in updateSummary
+                
+                console.log('Area selected successfully:', selectedArea, 'Features:', areaLandUseFeatures.length);
+            } catch (error) {
+                console.error('Error handling area change:', error);
+            }
+        }
+        
+        // Highlight area on map
+        async function highlightArea(keyCodes) {
+            console.log('highlightArea called with keyCodes:', keyCodes);
+            console.log('Map layers available:', map.getStyle().layers.map(l => l.id));
+            
+            return new Promise((resolve, reject) => {
+                if (!map.getLayer('tokyo-layer-highlight')) {
+                    console.error('Tokyo highlight layer not found! Available layers:', map.getStyle().layers.map(l => l.id));
+                    reject(new Error('Tokyo highlight layer not found'));
+                    return;
+                }
+                
+                console.log('Tokyo highlight layer found');
+                // Filter out any undefined, null, or empty values and ensure valid types
+                const validKeyCodes = keyCodes
+                    .filter(code => code !== undefined && code !== null && code !== '')
+                    .map(code => typeof code === 'number' ? code : Number(code))
+                    .filter(code => !isNaN(code));
+                
+                console.log('Valid key codes for filtering:', validKeyCodes);
+                
+                if (validKeyCodes.length > 0) {
+                    const filter = ['in', 'KEY_CODE', ...validKeyCodes];
+                    console.log('Setting filter:', filter);
+                    map.setFilter('tokyo-layer-highlight', filter);
+                    
+                    // Use a more robust approach with multiple retry attempts
+                    let attempts = 0;
+                    const maxAttempts = 5;
+                    
+                    const attemptZoom = () => {
+                        attempts++;
+                        console.log(`Zoom attempt ${attempts} of ${maxAttempts}...`);
+                        
+                        const features = map.querySourceFeatures('tokyo-data', {
+                            filter: ['in', 'KEY_CODE', ...validKeyCodes]
+                        });
+                        
+                        console.log(`Found ${features.length} features on attempt ${attempts}`);
+                        
+                        if (features.length > 0) {
+                            const bounds = new mapboxgl.LngLatBounds();
+                            
+                            // Extend bounds with all coordinates from all features
+                            features.forEach(feature => {
+                                if (feature.geometry.type === 'Polygon') {
+                                    feature.geometry.coordinates[0].forEach(coord => bounds.extend(coord));
+                                } else if (feature.geometry.type === 'MultiPolygon') {
+                                    feature.geometry.coordinates.forEach(polygon => {
+                                        polygon[0].forEach(coord => bounds.extend(coord));
+                                    });
+                                }
+                            });
+                            
+                            console.log('Fitting bounds to features');
+                            map.fitBounds(bounds, { 
+                                padding: { top: 80, bottom: 80, left: 80, right: 80 }, 
+                                duration: 1200,
+                                maxZoom: 14
+                            });
+                            
+                            // Wait for the fitBounds animation to complete
+                            map.once('moveend', () => {
+                                console.log('Map move completed successfully');
+                                resolve();
+                            });
+                            
+                        } else if (attempts < maxAttempts) {
+                            // Exponential backoff for retries
+                            const delay = Math.min(50 * Math.pow(2, attempts - 1), 500);
+                            console.log(`No features found, retrying in ${delay}ms...`);
+                            setTimeout(attemptZoom, delay);
+                        } else {
+                            console.warn('Max retry attempts reached, no features found for zoom');
+                            resolve();
+                        }
+                    };
+                    
+                    // Wait for the next frame to ensure filter is applied
+                    requestAnimationFrame(() => {
+                        // Then wait a bit more for the map to process the filter
+                        setTimeout(attemptZoom, 50);
+                    });
+                    
+                } else {
+                    console.log('No valid key codes, clearing filter');
+                    map.setFilter('tokyo-layer-highlight', ['==', 'KEY_CODE', '']);
+                    resolve();
+                }
+            });
+        }
+        
+        // Clear map highlight
+        function clearHighlight() {
+            if (map.getLayer('tokyo-layer-highlight')) {
+                map.setFilter('tokyo-layer-highlight', ['==', 'KEY_CODE', '']);
+            }
+            // Remove area marker
+            if (currentAreaMarker) {
+                currentAreaMarker.remove();
+                currentAreaMarker = null;
+            }
+        }
+
+        // Add area label to map
+        function addAreaLabelToMap(areaFeatures, areaName) {
+            console.log('Adding area label to map:', areaName);
+            
+            if (!map || !areaFeatures || areaFeatures.length === 0) {
+                return;
+            }
+
+            // Remove existing marker
+            if (currentAreaMarker) {
+                currentAreaMarker.remove();
+            }
+
+            // Calculate centroid of all features
+            let totalLng = 0, totalLat = 0, pointCount = 0;
+            
+            areaFeatures.forEach(feature => {
+                if (feature.geometry && feature.geometry.type === 'Polygon') {
+                    feature.geometry.coordinates[0].forEach(coord => {
+                        totalLng += coord[0];
+                        totalLat += coord[1];
+                        pointCount++;
+                    });
+                }
+            });
+
+            if (pointCount === 0) return;
+
+            const centroidLng = totalLng / pointCount;
+            const centroidLat = totalLat / pointCount;
+
+            // Create area marker
+            const areaMarker = document.createElement('div');
+            areaMarker.innerHTML = areaName;
+            areaMarker.style.cssText = `
+                background: #8b5cf6;
+                color: white;
+                padding: 6px 10px;
+                font-weight: 500;
+                font-size: 13px;
+                border-radius: 2px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+                pointer-events: none;
+            `;
+
+            // Add marker to map
+            currentAreaMarker = new mapboxgl.Marker(areaMarker)
+                .setLngLat([centroidLng, centroidLat])
+                .addTo(map);
+        }
+        
+        // Unified function to draw a two-column sankey diagram
+        // drawTwoColumnSankey function moved to XYMAX namespace (js/xymax.js)
+        
+        // Update age breakdown section
+        function updateSummary(features) {
+            if (!features || features.length === 0) {
+                hideSummary();
+                return;
+            }
+            
+            // Calculate age totals
+            let age_0_14 = 0;
+            let age_15_64 = 0;
+            let age_65_plus = 0;
+            
+            features.forEach(f => {
+                age_0_14 += Number(f.properties.pop_0_14) || 0;
+                age_15_64 += Number(f.properties.pop_15_64) || 0;
+                age_65_plus += Number(f.properties.pop_65_plus) || 0;
+            });
+            
+            // Draw age sankey diagram
+            drawAgeSankey(age_0_14, age_15_64, age_65_plus);
+            
+            // Show age section
+            document.getElementById('age-section').style.display = 'block';
+        }
+        
+        // Update sankey diagram - wrapper for discovery mode
+        function updateSankeyDiagram() {
+            console.log('updateSankeyDiagram called (discovery mode)');
+            console.log('currentHoveredGrid:', currentHoveredGrid ? currentHoveredGrid.length : 0);
+            
+            // Use currentHoveredGrid for discovery mode
+            const features = currentHoveredGrid;
+            
+            if (!features || features.length === 0) {
+                console.log('No features available, clearing sankey');
+                clearSankey();
+                return;
+            }
+            
+            // Call XYMAX temporal sankey function
+            XYMAX.drawTemporalSankey('sankey-container', features, viewMode);
+        }
+        
+        // Clear sankey diagram
+        function clearSankey() {
+            const container = document.getElementById('sankey-container');
+            if (!container) {
+                console.error('Sankey container not found in clearSankey!');
+                return;
+            }
+            container.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #888;">グリッドにマウスを重ねると土地利用データが表示されます</div>';
+        }
+        
+        // Update age breakdown section
+        function updateSummary(features) {
+            if (!features || features.length === 0) {
+                hideSummary();
+                return;
+            }
+            
+            // Calculate age totals
+            let age_0_14 = 0;
+            let age_15_64 = 0;
+            let age_65_plus = 0;
+            
+            features.forEach(f => {
+                age_0_14 += Number(f.properties.pop_0_14) || 0;
+                age_15_64 += Number(f.properties.pop_15_64) || 0;
+                age_65_plus += Number(f.properties.pop_65_plus) || 0;
+            });
+            
+            // Draw age sankey diagram
+            drawAgeSankey(age_0_14, age_15_64, age_65_plus);
+            
+            // Show age section
+            document.getElementById('age-section').style.display = 'block';
+        }
+        
+        // Hide summary section
+        function hideSummary() {
+            document.getElementById('age-section').style.display = 'none';
+        }
+
+        // Draw age breakdown sankey diagram
+        function drawAgeSankey(age_0_14, age_15_64, age_65_plus) {
+            const container = document.getElementById('age-sankey-container');
+            if (!container) return;
+            
+            const total = age_0_14 + age_15_64 + age_65_plus;
+            if (total === 0) {
+                container.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #ccc;">年齢データがありません</div>';
+                document.getElementById('age-section').style.display = 'none';
+                return;
+            }
+            
+            // Show section BEFORE drawing (so container has proper width)
+            document.getElementById('age-section').style.display = 'block';
+            
+            // Use unified function from XYMAX namespace
+            const colors = {
+                age_0_14: '#9ca3af',
+                age_15_64: '#6b7280',
+                age_65_plus: '#4b5563'
+            };
+            
+            XYMAX.drawTwoColumnSankey(container, {
+                leftData: { total: total },
+                rightData: [
+                    { category: 'age_0_14', value: age_0_14, label: '0-14歳' },
+                    { category: 'age_15_64', value: age_15_64, label: '15-64歳' },
+                    { category: 'age_65_plus', value: age_65_plus, label: '65歳以上' }
+                ],
+                colors: colors,
+                leftLabel: '総人口',
+                rightLabel: '年齢構成',
+                showValues: true,
+                usePercentage: ageViewMode === 'percent'
+            });
+        }
+
+        // Update single mode summary text
+        function updateSingleSummary(features) {
+            const summaryEl = document.getElementById('single-summary');
+            if (!summaryEl || !features || features.length === 0) {
+                if (summaryEl) summaryEl.style.display = 'none';
+                return;
+            }
+
+            // Calculate totals for office and housing
+            let office1996 = 0, office2023 = 0, housing1996 = 0, housing2023 = 0;
+
+            features.forEach(feature => {
+                const props = feature.properties;
+                office1996 += props['1996_office_total_use_area'] || 0;
+                office2023 += props['2023_office_total_use_area'] || 0;
+                housing1996 += props['1996_housing_total_use_area'] || 0;
+                housing2023 += props['2023_housing_total_use_area'] || 0;
+            });
+
+            // Calculate changes
+            const officeChange = office2023 - office1996;
+            const housingChange = housing2023 - housing1996;
+            const officePercent = office1996 > 0 ? ((officeChange / office1996) * 100) : 0;
+            const housingPercent = housing1996 > 0 ? ((housingChange / housing1996) * 100) : 0;
+
+            // Generate summary text with HTML formatting
+            let summaryHTML = `この場所では過去27年間で、`;
+            
+            if (Math.abs(officePercent) > 1) {
+                if (officeChange > 0) {
+                    summaryHTML += `オフィススペースが<strong style="color: #22c55e;">${Math.round(Math.abs(officePercent))}%増加</strong>し（${Math.round(Math.abs(officeChange)).toLocaleString()} m²）、`;
+                } else {
+                    summaryHTML += `オフィススペースが<strong style="color: #ef4444;">${Math.round(Math.abs(officePercent))}%減少</strong>し（${Math.round(Math.abs(officeChange)).toLocaleString()} m²）、`;
+                }
+            } else {
+                summaryHTML += `オフィススペースはほぼ安定しており、`;
+            }
+
+            if (Math.abs(housingPercent) > 1) {
+                if (housingChange > 0) {
+                    summaryHTML += `住宅は<strong style="color: #22c55e;">${Math.round(Math.abs(housingPercent))}%増加</strong>しました（${Math.round(Math.abs(housingChange)).toLocaleString()} m²）。`;
+                } else {
+                    summaryHTML += `住宅は<strong style="color: #ef4444;">${Math.round(Math.abs(housingPercent))}%減少</strong>しました（${Math.round(Math.abs(housingChange)).toLocaleString()} m²）。`;
+                }
+            } else {
+                summaryHTML += `住宅もほぼ安定しています。`;
+            }
+
+            summaryEl.innerHTML = summaryHTML;
+            summaryEl.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

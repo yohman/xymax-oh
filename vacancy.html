@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>東京物語 - Vacancies</title>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles/common.css">
+    <link rel="stylesheet" href="styles/style.css">
+    <style>
+        body {
+            color: #fff;
+            background: #0d0d0f;
+        }
+
+        .map-side::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(120deg, rgba(0,0,0,0.4), rgba(0,0,0,0.05));
+            pointer-events: none;
+        }
+
+        .map-overlay-title {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1200;
+            text-align: left;
+        }
+
+        .map-overlay-title h1 {
+            margin: 0;
+            font-family: 'Noto Serif JP', serif;
+            font-size: 2rem;
+            letter-spacing: 0.08em;
+            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+        }
+
+        .map-control-stack {
+            position: absolute;
+            top: 20px;
+            right: 22px;
+            z-index: 1200;
+            width: 220px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .control-card {
+            background: rgba(13, 13, 17, 0.85);
+            border: 1px solid rgba(255,255,255,0.08);
+            padding: 10px 12px;
+            color: #e2e2e2;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+            backdrop-filter: blur(6px);
+            border-radius: 6px;
+        }
+
+        .control-card label {
+            display: block;
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+            color: #cfd2e6;
+        }
+
+        .control-card select,
+        .control-card input[type="range"] {
+            width: 100%;
+        }
+
+        .range-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: #cfd2e6;
+        }
+
+        .mode-toggle {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .mode-button {
+            flex: 1;
+            padding: 8px 10px;
+            font-size: 0.85rem;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(34, 35, 42, 0.9);
+            color: #d8d8e8;
+            cursor: pointer;
+            border-radius: 0;
+            transition: all 0.1s ease;
+        }
+
+        .mode-button.active {
+            background: rgba(139, 92, 246, 0.95);
+            color: #fff;
+            border-color: rgba(255,255,255,0.35);
+        }
+
+        .mode-button:hover {
+            border-color: rgba(139, 92, 246, 0.8);
+            color: #fff;
+        }
+
+        .play-button {
+            position: absolute;
+            bottom: 28px;
+            left: 50%;
+            transform: translateX(calc(-50% - 170px));
+            z-index: 1200;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(12, 12, 14, 0.85);
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+            cursor: pointer;
+            border-radius: 0;
+        }
+
+        .play-button:hover {
+            border-color: rgba(139, 92, 246, 0.8);
+        }
+
+        .play-icon {
+            width: 0;
+            height: 0;
+            border-top: 10px solid transparent;
+            border-bottom: 10px solid transparent;
+            border-left: 14px solid #fff;
+            margin-left: 4px;
+        }
+
+        .time-bar {
+            position: absolute;
+            bottom: 28px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1200;
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            background: rgba(12, 12, 14, 0.85);
+            border: 1px solid rgba(255,255,255,0.08);
+            padding: 0 6px;
+            border-radius: 0;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+            backdrop-filter: blur(6px);
+        }
+
+        .year-box {
+            padding: 10px 12px;
+            min-width: 54px;
+            text-align: center;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            color: #d6d8e8;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-left: none;
+            background: rgba(32, 34, 46, 0.9);
+            border-radius: 0;
+            cursor: pointer;
+            transition: all 0.1s ease;
+        }
+
+        .year-box:first-child {
+            border-left: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .year-box:hover {
+            border-color: rgba(139, 92, 246, 0.9);
+            color: #fff;
+            background: rgba(53, 56, 78, 0.95);
+            box-shadow: inset 0 0 0 1px rgba(139,92,246,0.25);
+        }
+
+        .year-box.active {
+            background: rgba(139, 92, 246, 0.95);
+            color: #fff;
+            border-color: rgba(255,255,255,0.35);
+        }
+
+        .legend {
+            background: rgba(13, 13, 17, 0.85);
+            border: 1px solid rgba(255,255,255,0.08);
+            padding: 10px 12px;
+            border-radius: 6px;
+            color: #e2e2e2;
+            font-size: 0.85rem;
+            width: 100%;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+            backdrop-filter: blur(6px);
+        }
+
+        .legend-title {
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            letter-spacing: 0.03em;
+        }
+
+        .legend-modes {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .legend-mode-btn {
+            padding: 6px 8px;
+            font-size: 0.75rem;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(34, 35, 42, 0.9);
+            color: #d8d8e8;
+            cursor: pointer;
+            border-radius: 0;
+            transition: all 0.1s ease;
+        }
+
+        .legend-mode-btn:hover {
+            border-color: rgba(139, 92, 246, 0.8);
+            color: #fff;
+            background: rgba(53, 56, 78, 0.95);
+        }
+
+        .legend-mode-btn.active {
+            background: rgba(139, 92, 246, 0.95);
+            color: #fff;
+            border-color: rgba(255,255,255,0.35);
+        }
+
+        .legend-scale {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .legend-color {
+            width: 22px;
+            height: 12px;
+            border-radius: 0;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .legend-label {
+            font-size: 0.78rem;
+            color: #cfd2e6;
+        }
+
+        .data-side {
+            background: radial-gradient(circle at 20% 20%, rgba(139,92,246,0.09), transparent 30%), #0d0d0f;
+        }
+
+        .data-content {
+            padding: 28px;
+        }
+
+        .data-title {
+            font-family: 'Noto Serif JP', serif;
+            letter-spacing: 0.08em;
+            font-weight: 800;
+            color: #f7f7ff;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            align-items: flex-start;
+        }
+
+        .data-subtitle {
+            font-size: 0.95rem;
+            color: #a7b3ff;
+            letter-spacing: 0.08em;
+        }
+
+        .panel {
+            background: rgba(24,24,32,0.8);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 18px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+
+        .panel h3 {
+            margin: 0 0 10px;
+            font-size: 1rem;
+            letter-spacing: 0.05em;
+            color: #e8e9ff;
+        }
+
+        #vacancy-flow {
+            width: 100%;
+            height: 260px;
+        }
+
+        #hover-summary {
+            font-size: 0.95rem;
+            color: #cdd0e8;
+            line-height: 1.5;
+        }
+
+        .vacancy-stats {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .stat-pill {
+            padding: 8px 12px;
+            background: rgba(139, 92, 246, 0.12);
+            border: 1px solid rgba(139, 92, 246, 0.25);
+            border-radius: 10px;
+            font-size: 0.85rem;
+            color: #dedeff;
+        }
+
+        .resize-handle {
+            width: 8px;
+            cursor: ew-resize;
+            background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+            border-left: 1px solid rgba(255,255,255,0.08);
+            border-right: 1px solid rgba(0,0,0,0.35);
+        }
+
+        .resize-handle:hover {
+            background: rgba(139, 92, 246, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="split-container">
+        <div class="map-side" id="map-side" style="flex: 0 0 55%;">
+            <div id="map"></div>
+            <div class="map-header">
+                <a href="index.html" class="back-arrow">←</a>
+                <h1 class="compare-title">東京物語</h1>
+            </div>
+            <div class="map-control-stack">
+                <div class="control-card">
+                    <label for="basemap-select">地図</label>
+                    <select id="basemap-select">
+                        <option value="satellite">衛星写真</option>
+                        <option value="gsi">国土地理院</option>
+                    </select>
+                    <div class="range-row" style="margin-top:8px;">
+                        <span style="min-width:48px;">Opacity</span>
+                        <input type="range" id="opacity-slider" min="0.1" max="1" step="0.05" value="0.7">
+                    </div>
+                </div>
+                <div class="legend" id="legend"></div>
+                <div class="control-card">
+                    <div class="mode-toggle">
+                        <button class="mode-button active" id="mode-2d">2D</button>
+                        <button class="mode-button" id="mode-3d">3D</button>
+                    </div>
+                    <div class="range-row" style="margin-top:8px;">
+                        <span style="min-width:48px;">Extrude</span>
+                        <input type="range" id="extrude-slider" min="2000" max="30000" step="1000" value="15000" disabled>
+                    </div>
+                </div>
+            </div>
+            <div class="play-button" id="play-button" title="Play timeline">
+                <div class="play-icon"></div>
+            </div>
+            <div class="time-bar" id="time-bar"></div>
+        </div>
+        <div class="resize-handle" id="resize-handle" title="Drag to resize"></div>
+        <div class="data-side" id="data-side" style="flex: 1 1 45%;">
+            <div class="data-content">
+                <div class="data-title">
+                    <span>Vacancies</span>
+                    <span class="data-subtitle">空室率 2012-2024</span>
+                </div>
+                <div class="panel">
+                    <h3>推移フロー (Hover a tile)</h3>
+                    <div id="hover-summary">地図上のメッシュをホバーすると、2012→2024の空室率の流れが表示されます。</div>
+                    <div id="vacancy-flow"></div>
+                    <div class="vacancy-stats" id="vacancy-stats"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoieW9obWFuIiwiYSI6IkxuRThfNFkifQ.u2xRJMiChx914U7mOZMiZw';
+
+        const years = Array.from({ length: 13 }, (_, i) => 2012 + i); // 2012-2024
+        const colorRamp = ['#111827', '#283048', '#4c3f7f', '#6c54d8', '#b794f4', '#e9d8fd'];
+        let currentYear = 2012;
+        let map;
+        let vacancyData;
+        let breaks = [];
+        let maxRate = 0;
+        let breakMode = 'natural';
+        let layerOpacity = 0.7;
+        let extrusionScale = 15000;
+        let is3D = false;
+        const byCode = new Map();
+        let hoverBound = false;
+        let allRates = [];
+        let playTimer = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            buildTimeBar();
+            setupResizer();
+            await initializeMap();
+        });
+
+        async function initializeMap() {
+            const basemaps = {
+                satellite: {
+                    version: 8,
+                    sources: {
+                        'esri-world-imagery': {
+                            type: "raster",
+                            tiles: [
+                                "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                            ],
+                            tileSize: 256,
+                            attribution: "Tiles &copy; <a href=\"https://www.esri.com/\">Esri</a> — Source: Esri, Earthstar Geographics",
+                            maxzoom: 19
+                        }
+                    },
+                    layers: [
+                        {
+                            id: "esri-world-imagery-layer",
+                            type: "raster",
+                            source: "esri-world-imagery"
+                        }
+                    ]
+                },
+                gsi: {
+                    version: 8,
+                    sources: {
+                        'gsi-pale': {
+                            type: "raster",
+                            tiles: [
+                                "https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png"
+                            ],
+                            tileSize: 256,
+                            attribution: "地理院タイル &copy; <a href=\"https://www.gsi.go.jp/\">国土地理院</a>",
+                            maxzoom: 18
+                        }
+                    },
+                    layers: [
+                        {
+                            id: "gsi-pale-layer",
+                            type: "raster",
+                            source: "gsi-pale"
+                        }
+                    ]
+                }
+            };
+
+            map = new mapboxgl.Map({
+                container: 'map',
+                style: basemaps.satellite,
+                center: [139.6917, 35.6895],
+                zoom: 10,
+                pitch: 0,
+                bearing: 0,
+                attributionControl: false
+            });
+
+            document.getElementById('basemap-select').addEventListener('change', (e) => {
+                const styleId = e.target.value;
+                map.setStyle(basemaps[styleId]);
+                map.once('styledata', () => {
+                    addVacancyLayers();
+                });
+            });
+
+            const opacitySlider = document.getElementById('opacity-slider');
+            opacitySlider.addEventListener('input', (e) => {
+                layerOpacity = Number(e.target.value);
+                updateLayerOpacity();
+            });
+
+            const extrudeSlider = document.getElementById('extrude-slider');
+            extrudeSlider.addEventListener('input', (e) => {
+                extrusionScale = Number(e.target.value);
+                updateExtrusionHeight();
+            });
+
+            document.getElementById('mode-2d').addEventListener('click', () => toggle3D(false));
+            document.getElementById('mode-3d').addEventListener('click', () => toggle3D(true));
+            document.getElementById('play-button').addEventListener('click', togglePlay);
+
+            map.on('load', async () => {
+                vacancyData = await fetch('data/vacancy.geojson').then(res => res.json());
+                preprocessVacancy(vacancyData);
+                buildLegend();
+                addVacancyLayers();
+            });
+        }
+
+        function preprocessVacancy(data) {
+            const values = [];
+            data.features.forEach(f => {
+                const rate = Number(f.properties['空室率']);
+                if (!Number.isFinite(rate)) return;
+                values.push(rate);
+                maxRate = Math.max(maxRate, rate);
+
+                const code = f.properties.Code;
+                const year = Number(f.properties.YEAR);
+                if (!byCode.has(code)) byCode.set(code, {});
+                byCode.get(code)[year] = f;
+            });
+
+            values.sort((a, b) => a - b);
+            allRates = values;
+            breaks = computeBreaks(breakMode, values);
+        }
+
+        function colorExpression() {
+            const expr = ['step', ['coalesce', ['get', '空室率'], -1], colorRamp[0]];
+            for (let i = 1; i < breaks.length; i++) {
+                expr.push(breaks[i]);
+                expr.push(colorRamp[Math.min(i, colorRamp.length - 1)]);
+            }
+            return expr;
+        }
+
+        function addVacancyLayers() {
+            if (!vacancyData) return;
+            if (map.getSource('vacancy')) {
+                map.getSource('vacancy').setData(vacancyData);
+            } else {
+                map.addSource('vacancy', {
+                    type: 'geojson',
+                    data: vacancyData,
+                    promoteId: 'Code'
+                });
+            }
+
+            const fillPaint = {
+                'fill-color': colorExpression(),
+                'fill-opacity': layerOpacity
+            };
+
+            if (!map.getLayer('vacancy-fill')) {
+                map.addLayer({
+                    id: 'vacancy-fill',
+                    type: 'fill',
+                    source: 'vacancy',
+                    paint: fillPaint,
+                    filter: ['==', ['get', 'YEAR'], currentYear]
+                });
+            } else {
+                map.setPaintProperty('vacancy-fill', 'fill-color', colorExpression());
+                map.setFilter('vacancy-fill', ['==', ['get', 'YEAR'], currentYear]);
+            }
+
+            if (!map.getLayer('vacancy-outline')) {
+                map.addLayer({
+                    id: 'vacancy-outline',
+                    type: 'line',
+                    source: 'vacancy',
+                    paint: {
+                        'line-color': '#ffffff',
+                        'line-opacity': 0.15,
+                        'line-width': 0.4
+                    },
+                    filter: ['==', ['get', 'YEAR'], currentYear]
+                });
+            } else {
+                map.setFilter('vacancy-outline', ['==', ['get', 'YEAR'], currentYear]);
+            }
+
+            const extrusionPaint = {
+                'fill-extrusion-color': colorExpression(),
+                'fill-extrusion-opacity': layerOpacity,
+                'fill-extrusion-height': extrusionHeightExpression()
+            };
+
+            if (!map.getLayer('vacancy-extrude')) {
+                map.addLayer({
+                    id: 'vacancy-extrude',
+                    type: 'fill-extrusion',
+                    source: 'vacancy',
+                    paint: extrusionPaint,
+                    filter: ['==', ['get', 'YEAR'], currentYear],
+                    layout: {
+                        visibility: is3D ? 'visible' : 'none'
+                    }
+                });
+            } else {
+                map.setPaintProperty('vacancy-extrude', 'fill-extrusion-color', colorExpression());
+                map.setPaintProperty('vacancy-extrude', 'fill-extrusion-opacity', layerOpacity);
+                map.setPaintProperty('vacancy-extrude', 'fill-extrusion-height', extrusionHeightExpression());
+                map.setFilter('vacancy-extrude', ['==', ['get', 'YEAR'], currentYear]);
+                map.setLayoutProperty('vacancy-extrude', 'visibility', is3D ? 'visible' : 'none');
+            }
+
+            if (!hoverBound) {
+                hoverBound = true;
+                map.on('mousemove', 'vacancy-fill', (e) => {
+                    map.getCanvas().style.cursor = 'pointer';
+                    const feature = e.features && e.features[0];
+                    if (feature) {
+                        updateFlow(feature);
+                    }
+                });
+
+                map.on('mouseleave', 'vacancy-fill', () => {
+                    map.getCanvas().style.cursor = '';
+                });
+            }
+        }
+
+        function buildTimeBar() {
+            const bar = document.getElementById('time-bar');
+            years.forEach(year => {
+                const box = document.createElement('div');
+                box.className = 'year-box' + (year === currentYear ? ' active' : '');
+                box.textContent = year;
+                box.dataset.year = year;
+                box.addEventListener('mouseenter', () => setYear(year, true));
+                box.addEventListener('click', () => setYear(year, true));
+                bar.appendChild(box);
+            });
+        }
+
+        function setYear(year, cancelPlay = false) {
+            if (cancelPlay && playTimer) {
+                stopPlay();
+            }
+            currentYear = year;
+            document.querySelectorAll('.year-box').forEach(box => {
+                box.classList.toggle('active', Number(box.dataset.year) === year);
+            });
+            if (map && map.getLayer('vacancy-fill')) {
+                map.setFilter('vacancy-fill', ['==', ['get', 'YEAR'], currentYear]);
+            }
+            if (map && map.getLayer('vacancy-outline')) {
+                map.setFilter('vacancy-outline', ['==', ['get', 'YEAR'], currentYear]);
+            }
+            if (map && map.getLayer('vacancy-extrude')) {
+                map.setFilter('vacancy-extrude', ['==', ['get', 'YEAR'], currentYear]);
+            }
+        }
+
+        function buildLegend() {
+            const container = document.getElementById('legend');
+            container.innerHTML = '';
+            const title = document.createElement('div');
+            title.className = 'legend-title';
+            const modeLabel = breakMode === 'equal' ? 'Equal interval' : breakMode === 'quantile' ? 'Quantile' : 'Natural breaks';
+            title.textContent = `空室率 (${modeLabel})`;
+            container.appendChild(title);
+
+            const modes = document.createElement('div');
+            modes.className = 'legend-modes';
+            const modeOptions = [
+                { id: 'natural', label: 'Natural' },
+                { id: 'quantile', label: 'Quantile' },
+                { id: 'equal', label: 'Equal' }
+            ];
+            modeOptions.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = 'legend-mode-btn' + (breakMode === opt.id ? ' active' : '');
+                btn.textContent = opt.label;
+                btn.addEventListener('click', () => {
+                    if (breakMode === opt.id) return;
+                    breakMode = opt.id;
+                    breaks = computeBreaks(breakMode, allRates);
+                    buildLegend();
+                    addVacancyLayers();
+                });
+                modes.appendChild(btn);
+            });
+            container.appendChild(modes);
+
+            const scale = document.createElement('div');
+            scale.className = 'legend-scale';
+
+            for (let i = 0; i < breaks.length - 1; i++) {
+                const color = document.createElement('div');
+                color.className = 'legend-color';
+                color.style.background = colorRamp[Math.min(i, colorRamp.length - 1)];
+
+                const label = document.createElement('div');
+                label.className = 'legend-label';
+                const from = (breaks[i] * 100).toFixed(1);
+                const to = (breaks[i + 1] * 100).toFixed(1);
+                label.textContent = `${from}% – ${to}%`;
+
+                const item = document.createElement('div');
+                item.style.display = 'flex';
+                item.style.alignItems = 'center';
+                item.style.gap = '6px';
+                item.appendChild(color);
+                item.appendChild(label);
+
+                scale.appendChild(item);
+            }
+
+            container.appendChild(scale);
+        }
+
+        function updateFlow(feature) {
+            const code = feature.properties.Code;
+            const lookup = byCode.get(code) || {};
+            const series = years.map(y => {
+                const feat = lookup[y];
+                return {
+                    year: y,
+                    rate: feat ? Number(feat.properties['空室率']) : null
+                };
+            });
+
+            drawFlow(series);
+            renderStats(series);
+
+            const summary = document.getElementById('hover-summary');
+            const name = feature.properties.AREA_NAME || feature.properties.MESH_CODE || feature.properties.Code;
+            const currentRate = Number(feature.properties['空室率']);
+            const rateText = Number.isFinite(currentRate) ? `${(currentRate * 100).toFixed(2)}%` : 'データなし';
+            summary.textContent = `Code ${name}: ${currentYear}年 空室率 ${rateText}`;
+        }
+
+        function drawFlow(series) {
+            const container = document.getElementById('vacancy-flow');
+            container.innerHTML = '';
+            d3.selectAll('.sankey-tooltip').remove();
+
+            const valid = series.filter(d => Number.isFinite(d.rate));
+            if (!valid.length) {
+                container.innerHTML = '<div style="color:#9ca3af;text-align:center;padding-top:20px;">データがありません</div>';
+                return;
+            }
+
+            const width = container.getBoundingClientRect().width || 360;
+            const height = container.getBoundingClientRect().height || 240;
+            const margin = { top: 18, right: 20, bottom: 28, left: 40 };
+            const innerWidth = width - margin.left - margin.right;
+            const innerHeight = height - margin.top - margin.bottom;
+
+            const svg = d3.select(container)
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height);
+
+            const g = svg.append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
+
+            const x = d3.scalePoint()
+                .domain(years)
+                .range([0, innerWidth])
+                .padding(0.2);
+
+            const y = d3.scaleLinear()
+                .domain([0, 1])
+                .range([innerHeight, 0]);
+
+            const area = d3.area()
+                .defined(d => d.rate !== null)
+                .x(d => x(d.year))
+                .y0(() => y(0))
+                .y1(d => y(d.rate))
+                .curve(d3.curveCatmullRom.alpha(0.8));
+
+            const line = d3.line()
+                .defined(d => d.rate !== null)
+                .x(d => x(d.year))
+                .y(d => y(d.rate))
+                .curve(d3.curveCatmullRom.alpha(0.8));
+
+            const gradientId = 'vacancy-gradient';
+            const defs = svg.append('defs');
+            const gradient = defs.append('linearGradient')
+                .attr('id', gradientId)
+                .attr('x1', '0%').attr('x2', '0%')
+                .attr('y1', '0%').attr('y2', '100%');
+            gradient.append('stop').attr('offset', '0%').attr('stop-color', '#8b5cf6').attr('stop-opacity', 0.85);
+            gradient.append('stop').attr('offset', '100%').attr('stop-color', '#111827').attr('stop-opacity', 0.1);
+
+            g.append('path')
+                .datum(series)
+                .attr('fill', `url(#${gradientId})`)
+                .attr('d', area);
+
+            g.append('path')
+                .datum(series)
+                .attr('fill', 'none')
+                .attr('stroke', '#c4b5fd')
+                .attr('stroke-width', 2)
+                .attr('d', line);
+
+            g.selectAll('.flow-dot')
+                .data(series.filter(d => d.rate !== null))
+                .enter()
+                .append('circle')
+                .attr('class', 'flow-dot')
+                .attr('cx', d => x(d.year))
+                .attr('cy', d => y(d.rate))
+                .attr('r', 4)
+                .attr('fill', '#e9d8fd')
+                .attr('stroke', '#111')
+                .attr('stroke-width', 1)
+                .append('title')
+                .text(d => `${d.year}: ${(d.rate * 100).toFixed(2)}%`);
+
+            const xAxis = d3.axisBottom(x).tickFormat(d3.format('d'));
+            const yAxis = d3.axisLeft(y).ticks(5).tickFormat(d => `${(d * 100).toFixed(0)}%`);
+
+            g.append('g')
+                .attr('transform', `translate(0,${innerHeight})`)
+                .call(xAxis)
+                .selectAll('text')
+                .attr('fill', '#d1d5db');
+
+            g.append('g')
+                .call(yAxis)
+                .selectAll('text')
+                .attr('fill', '#d1d5db');
+
+            g.selectAll('.domain, .tick line')
+                .attr('stroke', '#374151');
+        }
+
+        function renderStats(series) {
+            const container = document.getElementById('vacancy-stats');
+            container.innerHTML = '';
+            const first = series.find(d => d.rate !== null);
+            const last = [...series].reverse().find(d => d.rate !== null);
+            if (first) {
+                const pill = document.createElement('div');
+                pill.className = 'stat-pill';
+                pill.textContent = `${first.year}年: ${(first.rate * 100).toFixed(2)}%`;
+                container.appendChild(pill);
+            }
+            if (last && (!first || last.year !== first.year)) {
+                const pill = document.createElement('div');
+                pill.className = 'stat-pill';
+                pill.textContent = `${last.year}年: ${(last.rate * 100).toFixed(2)}%`;
+                container.appendChild(pill);
+            }
+            if (first && last && first.year !== last.year) {
+                const diff = (last.rate - first.rate) * 100;
+                const pill = document.createElement('div');
+                pill.className = 'stat-pill';
+                pill.textContent = `変化: ${diff >= 0 ? '+' : ''}${diff.toFixed(2)}pt`;
+                container.appendChild(pill);
+            }
+        }
+
+        function extrusionHeightExpression() {
+            return ['*', ['coalesce', ['get', '空室率'], 0], extrusionScale];
+        }
+
+        function updateLayerOpacity() {
+            if (map && map.getLayer('vacancy-fill')) {
+                map.setPaintProperty('vacancy-fill', 'fill-opacity', layerOpacity);
+            }
+            if (map && map.getLayer('vacancy-extrude')) {
+                map.setPaintProperty('vacancy-extrude', 'fill-extrusion-opacity', layerOpacity);
+            }
+        }
+
+        function updateExtrusionHeight() {
+            if (map && map.getLayer('vacancy-extrude')) {
+                map.setPaintProperty('vacancy-extrude', 'fill-extrusion-height', extrusionHeightExpression());
+            }
+        }
+
+        function toggle3D(enable) {
+            is3D = enable;
+            document.getElementById('mode-2d').classList.toggle('active', !enable);
+            document.getElementById('mode-3d').classList.toggle('active', enable);
+            const extrudeSlider = document.getElementById('extrude-slider');
+            extrudeSlider.disabled = !enable;
+            if (enable) {
+                map.easeTo({ pitch: 55, bearing: 20, duration: 800 });
+            } else {
+                map.easeTo({ pitch: 0, bearing: 0, duration: 600 });
+            }
+            if (map && map.getLayer('vacancy-extrude')) {
+                map.setLayoutProperty('vacancy-extrude', 'visibility', enable ? 'visible' : 'none');
+                updateExtrusionHeight();
+            }
+        }
+
+        function togglePlay() {
+            if (playTimer) {
+                stopPlay();
+                return;
+            }
+            playTimer = setInterval(() => {
+                const idx = years.indexOf(currentYear);
+                const next = years[(idx + 1) % years.length];
+                setYear(next, false);
+            }, 1200);
+            const btn = document.getElementById('play-button');
+            btn.style.borderColor = 'rgba(139, 92, 246, 0.8)';
+            btn.style.boxShadow = '0 0 0 2px rgba(139,92,246,0.25)';
+        }
+
+        function stopPlay() {
+            if (playTimer) {
+                clearInterval(playTimer);
+                playTimer = null;
+                const btn = document.getElementById('play-button');
+                btn.style.borderColor = 'rgba(255,255,255,0.08)';
+                btn.style.boxShadow = '0 8px 20px rgba(0,0,0,0.35)';
+            }
+        }
+
+        function computeBreaks(mode, values) {
+            const sorted = [...values].filter(Number.isFinite).sort((a, b) => a - b);
+            if (!sorted.length) return [0, 0.05, 0.1, 0.15, 0.2, 0.25];
+            const k = 6;
+            if (mode === 'equal') {
+                const min = sorted[0];
+                const max = sorted[sorted.length - 1];
+                const interval = (max - min) / (k - 1);
+                const arr = [];
+                for (let i = 0; i < k; i++) {
+                    arr.push(min + interval * i);
+                }
+                arr[k - 1] = max;
+                return arr;
+            }
+            if (mode === 'quantile') {
+                return [
+                    sorted[0],
+                    d3.quantile(sorted, 0.2) ?? sorted[0],
+                    d3.quantile(sorted, 0.4) ?? sorted[0],
+                    d3.quantile(sorted, 0.6) ?? sorted[0],
+                    d3.quantile(sorted, 0.8) ?? sorted[sorted.length - 1],
+                    sorted[sorted.length - 1]
+                ];
+            }
+            // natural breaks (Jenks)
+            const jenks = jenksBreaks(sorted, k - 1);
+            if (jenks && jenks.length) {
+                return [sorted[0], ...jenks.slice(1)];
+            }
+            return computeBreaks('quantile', sorted);
+        }
+
+        // Fisher-Jenks natural breaks (returns k classes)
+        function jenksBreaks(data, k) {
+            if (k <= 1 || data.length === 0) return [];
+            const n = data.length;
+            const mat1 = Array.from({ length: n + 1 }, () => Array(k + 1).fill(0));
+            const mat2 = Array.from({ length: n + 1 }, () => Array(k + 1).fill(0));
+            for (let i = 1; i <= k; i++) {
+                mat1[1][i] = 1;
+                mat2[1][i] = 0;
+                for (let j = 2; j <= n; j++) {
+                    mat2[j][i] = Infinity;
+                }
+            }
+            for (let l = 2; l <= n; l++) {
+                let s1 = 0, s2 = 0, w = 0;
+                for (let m = 1; m <= l; m++) {
+                    const i3 = l - m + 1;
+                    const val = data[i3 - 1];
+                    s1 += val;
+                    s2 += val * val;
+                    w++;
+                    const variance = s2 - (s1 * s1) / w;
+                    if (i3 !== 1) {
+                        for (let j = 2; j <= k; j++) {
+                            if (mat2[l][j] >= (variance + mat2[i3 - 1][j - 1])) {
+                                mat1[l][j] = i3;
+                                mat2[l][j] = variance + mat2[i3 - 1][j - 1];
+                            }
+                        }
+                    }
+                }
+                mat1[l][1] = 1;
+                mat2[l][1] = s2 - (s1 * s1) / w;
+            }
+            const breaks = Array(k + 1).fill(0);
+            breaks[k] = data[n - 1];
+            breaks[0] = data[0];
+            let countNum = k;
+            let kclass = n;
+            while (countNum >= 2) {
+                const id = mat1[kclass][countNum] - 1;
+                breaks[countNum - 1] = data[id];
+                kclass = mat1[kclass][countNum] - 1;
+                countNum--;
+            }
+            return breaks;
+        }
+
+        function setupResizer() {
+            const handle = document.getElementById('resize-handle');
+            const mapSide = document.getElementById('map-side');
+            const dataSide = document.getElementById('data-side');
+            if (!handle || !mapSide || !dataSide) return;
+            let isDragging = false;
+
+            handle.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                document.body.style.cursor = 'ew-resize';
+                e.preventDefault();
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const container = document.querySelector('.split-container');
+                const rect = container.getBoundingClientRect();
+                const offset = e.clientX - rect.left;
+                const percent = Math.max(30, Math.min(70, (offset / rect.width) * 100));
+                mapSide.style.flex = `0 0 ${percent}%`;
+                dataSide.style.flex = `0 0 ${100 - percent}%`;
+                if (map) {
+                    map.resize();
+                }
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    document.body.style.cursor = '';
+                }
+            });
+        }
+    </script>
+</body>
+</html>
